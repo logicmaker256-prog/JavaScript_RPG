@@ -1,0 +1,2331 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自立キャラクタRPG - Phase2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Noto+Sans+JP:wght@300;400;700&display=swap');
+:root {
+  --bg:#0a0c10; --panel:#10141c; --border:#1e2a3a;
+  --accent:#4af; --accent2:#fa4; --accent3:#4f8;
+  --text:#c8d8e8; --dim:#4a5a6a; --danger:#f44; --map-bg:#080c10;
+  --outer-bg:#060a08;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DotGothic16',monospace;
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:8px;}
+h1{font-size:1.2em;color:var(--accent);letter-spacing:4px;text-align:center;
+  padding:8px 0 4px;text-shadow:0 0 16px #4af8;}
+
+/* SCREENS */
+.screen{display:none;width:100%;max-width:900px;}
+.screen.active{display:block;}
+
+/* CHARA MAKE */
+#charaMake{background:var(--panel);border:1px solid var(--border);border-radius:6px;
+  padding:18px;margin-top:8px;}
+#charaMake h2{color:var(--accent);margin-bottom:14px;font-size:1em;}
+.cm-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.cm-row label{width:80px;color:var(--dim);font-size:0.85em;}
+.cm-row input[type=text]{background:var(--bg);border:1px solid var(--border);
+  color:var(--text);padding:4px 8px;font-family:inherit;font-size:0.9em;
+  border-radius:3px;width:160px;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;}
+.stat-item{display:flex;flex-direction:column;gap:3px;}
+.stat-item label{font-size:0.78em;color:var(--dim);}
+.stat-controls{display:flex;align-items:center;gap:5px;}
+.stat-controls button{background:var(--border);border:none;color:var(--text);
+  width:22px;height:22px;cursor:pointer;border-radius:3px;font-size:1em;line-height:1;}
+.stat-controls button:hover{background:var(--accent);color:#000;}
+.stat-val{width:28px;text-align:center;font-size:1em;color:var(--accent2);}
+.pts-left{color:var(--accent3);font-size:0.85em;margin:6px 0;}
+
+/* BUTTONS */
+.btn{background:var(--accent);color:#000;border:none;padding:7px 20px;
+  font-family:inherit;font-size:0.85em;border-radius:3px;cursor:pointer;
+  font-weight:bold;letter-spacing:1px;transition:opacity 0.15s;}
+.btn:hover{opacity:0.8;} .btn:disabled{opacity:0.3;cursor:not-allowed;}
+.btn-dim{background:var(--border);color:var(--text);}
+
+/* GAME */
+#game{display:none;flex-direction:column;gap:5px;width:100%;max-width:900px;margin-top:5px;}
+#game.active{display:flex;}
+
+/* STATUS BAR */
+#statusBar{background:var(--panel);border:1px solid var(--border);border-radius:4px;
+  padding:6px 10px;font-size:0.75em;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;}
+.sb-item{display:flex;gap:5px;align-items:center;}
+.sb-label{color:var(--dim);}
+.sb-val{color:var(--accent2);}
+.sb-bar{height:5px;background:var(--border);border-radius:3px;width:50px;}
+.sb-bar-fill{height:100%;border-radius:3px;transition:width 0.3s;}
+.hp-fill{background:var(--danger);}
+.food-fill{background:var(--accent2);}
+.sleep-fill{background:var(--accent);}
+#mapLabel{font-size:0.75em;padding:2px 8px;border-radius:10px;
+  background:#1a2030;color:var(--accent);letter-spacing:1px;}
+
+/* MAIN AREA: 縦一列（モバイルファースト） */
+#mainArea{display:flex;flex-direction:column;gap:5px;}
+
+/* MAP: 横幅いっぱいに広げてセンタリング */
+#mapWrap{background:var(--map-bg);border:1px solid var(--border);
+  border-radius:4px;padding:5px;overflow:auto;display:flex;justify-content:center;}
+#mapCanvas{line-height:1;}
+.map-row{display:flex;}
+.map-cell{width:18px;height:18px;display:flex;align-items:center;
+  justify-content:center;font-size:10px;font-family:'DotGothic16',monospace;}
+
+/* Village terrain */
+.t-fence{color:#223;background:#0c0f16;}
+.t-path{color:#1e3550;}
+.t-road{color:#2a4060;}
+.t-wall{color:#151c28;background:#07090e;}
+.t-gate{color:var(--accent3);}
+.t-home{color:var(--accent);background:#081018;}
+.t-shop{color:var(--accent2);background:#120800;}
+.t-weapon{color:#f88;background:#120000;}
+.t-church{color:#ff8;background:#121000;}
+.t-food{color:#8f8;background:#001208;}
+.t-guild{color:#faf;background:#0e0016;}
+.t-well{color:#8cf;}
+.t-ditch{color:#1a3a40;background:#010506;}
+.t-farm{color:#1a3a1a;background:#010600;}
+.t-npc{color:var(--accent2);}
+.t-player{color:#fff;font-size:12px;}
+.t-monster{color:var(--danger);font-size:11px;}
+.cell-player{background:rgba(68,170,255,0.14);}
+.cell-target{background:rgba(255,170,68,0.1);}
+.cell-path{background:rgba(68,170,255,0.04);}
+/* Outer terrain */
+.t-mountain{color:#445;background:#0a0c10;}
+.t-forest{color:#1a4a1a;background:#040808;}
+.t-woods{color:#254a25;background:#050a05;}
+.t-plain{color:#2a3a2a;}
+.t-road-out{color:#4a4a2a;}
+.t-wetland{color:#1a3a4a;background:#050a0c;}
+.t-lake{color:#0a1a2a;background:#020408;}
+.t-village{color:#fff;background:#102030;}
+.t-castle{color:#ff8;}
+.t-dungeon{color:#f4f;}
+.t-monster-out{color:var(--danger);font-size:11px;}
+
+/* INFO PANELS: 2列グリッドで横に並べる */
+#rightPanel{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.panel-box{background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;padding:8px 10px;font-size:0.82em;}
+.panel-box h3{color:var(--dim);font-size:0.75em;letter-spacing:2px;
+  margin-bottom:5px;border-bottom:1px solid var(--border);padding-bottom:3px;}
+#thoughtBox{color:var(--accent3);font-size:0.82em;min-height:32px;padding:5px;
+  background:#040608;border-radius:3px;border-left:2px solid var(--accent3);}
+#actionBox{color:var(--accent2);font-size:0.8em;min-height:24px;margin-top:4px;}
+#systemBox{color:var(--dim);font-size:0.75em;margin-top:2px;}
+.personality-badge{display:inline-block;background:var(--accent);color:#000;
+  padding:1px 7px;border-radius:10px;font-size:0.75em;margin-bottom:5px;}
+.stat-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-size:0.78em;}
+.sd-item{display:flex;justify-content:space-between;}
+.sd-label{color:var(--dim);} .sd-val{color:var(--accent2);}
+.quest-box{font-size:0.76em;color:var(--accent2);background:#0d0900;
+  border:1px solid #3a2a00;border-radius:3px;padding:3px 7px;margin-top:3px;}
+#invGrid{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;}
+.inv-slot{background:var(--bg);border:1px solid var(--border);border-radius:3px;
+  padding:1px 5px;font-size:0.72em;color:var(--text);}
+.inv-equip{border-color:var(--accent);color:var(--accent);}
+.inv-blessed{border-color:var(--accent2);color:var(--accent2);}
+
+/* GOD PANEL: 2列全幅 */
+#godPanel{background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;padding:7px 10px;font-size:0.78em;grid-column:1/-1;}
+/* インベントリも全幅 */
+#invPanel{grid-column:1/-1;}
+#godPanel h3{color:var(--accent);font-size:0.78em;letter-spacing:2px;margin-bottom:5px;}
+.gp-display{color:var(--accent2);font-size:1em;margin-bottom:5px;}
+.gp-btns{display:flex;gap:5px;flex-wrap:wrap;}
+.gp-btn{background:#0a1220;border:1px solid var(--border);color:var(--text);
+  padding:3px 8px;font-family:inherit;font-size:0.74em;border-radius:3px;cursor:pointer;}
+.gp-btn:hover{border-color:var(--accent);color:var(--accent);}
+.gp-btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+/* COMBAT OVERLAY */
+#combatOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);
+  z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:10px;}
+#combatOverlay.active{display:flex;}
+#combatBox{background:var(--panel);border:1px solid var(--danger);border-radius:6px;
+  padding:16px;max-width:400px;width:90%;font-size:0.82em;}
+#combatBox h2{color:var(--danger);margin-bottom:8px;font-size:1em;text-align:center;}
+.cb-fighters{display:flex;justify-content:space-between;margin-bottom:10px;gap:10px;}
+.cb-side{flex:1;background:var(--bg);border-radius:4px;padding:8px;text-align:center;}
+.cb-side h3{font-size:0.85em;margin-bottom:4px;}
+.cb-hp-bar{height:8px;background:#222;border-radius:4px;margin:4px 0;}
+.cb-hp-fill{height:100%;border-radius:4px;background:var(--accent3);transition:width 0.4s;}
+.cb-hp-fill.low{background:var(--accent2);}
+.cb-hp-fill.crit{background:var(--danger);}
+#combatLog{height:120px;overflow-y:auto;font-size:0.78em;color:var(--dim);
+  background:var(--bg);border-radius:3px;padding:6px;margin-bottom:8px;}
+#combatLog .cl-hit{color:var(--accent2);}
+#combatLog .cl-miss{color:var(--dim);}
+#combatLog .cl-win{color:var(--accent3);}
+#combatLog .cl-lose{color:var(--danger);}
+
+/* SHOP OVERLAY */
+#shopOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);
+  z-index:100;align-items:center;justify-content:center;}
+#shopOverlay.active{display:flex;}
+#shopBox{background:var(--panel);border:1px solid var(--border);border-radius:6px;
+  padding:16px;max-width:440px;width:90%;font-size:0.82em;}
+#shopBox h2{color:var(--accent2);margin-bottom:10px;font-size:1em;}
+.shop-item{display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--border);padding:5px 0;}
+.shop-item-name{color:var(--text);}
+.shop-item-desc{color:var(--dim);font-size:0.75em;}
+.shop-item-price{color:var(--accent2);margin:0 8px;}
+.shop-btn{background:var(--border);border:none;color:var(--text);padding:2px 8px;
+  font-family:inherit;font-size:0.75em;border-radius:2px;cursor:pointer;}
+.shop-btn:hover{background:var(--accent);color:#000;}
+.shop-btn:disabled{opacity:0.3;cursor:not-allowed;}
+#shopGold{color:var(--accent3);margin-bottom:8px;}
+
+/* LEVELUP OVERLAY */
+#levelupOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);
+  z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:0;}
+#levelupOverlay.active{display:flex;}
+#levelupBox{background:var(--panel);border:2px solid var(--accent2);border-radius:8px;
+  padding:20px;width:90%;max-width:360px;font-family:'DotGothic16',monospace;}
+#levelupBox h2{color:var(--accent2);font-size:1.1em;text-align:center;margin-bottom:4px;
+  text-shadow:0 0 12px #fa48;}
+#levelupBox .lu-sub{color:var(--dim);font-size:0.78em;text-align:center;margin-bottom:12px;}
+#levelupBox .lu-pts{color:var(--accent3);font-size:0.88em;margin:8px 0;text-align:center;}
+#levelupBox .lu-current{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;
+  font-size:0.78em;margin-bottom:10px;}
+#levelupBox .lu-row{display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--border);padding:2px 0;}
+#levelupBox .lu-label{color:var(--dim);}
+#levelupBox .lu-cur{color:var(--text);}
+#levelupBox .lu-arrow{color:var(--accent3);}
+#levelupBox .lu-new{color:var(--accent2);font-weight:bold;}
+.lu-stat-controls{display:flex;align-items:center;gap:5px;margin-top:8px;}
+.lu-stat-controls button{background:var(--border);border:none;color:var(--text);
+  width:24px;height:24px;cursor:pointer;border-radius:3px;font-size:1em;}
+.lu-stat-controls button:hover{background:var(--accent2);color:#000;}
+.lu-stat-val{width:28px;text-align:center;font-size:1em;color:var(--accent2);}
+#levelupBox .lu-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0;}
+#levelupBox .lu-stat-item{display:flex;flex-direction:column;gap:2px;}
+#levelupBox .lu-stat-item label{font-size:0.76em;color:var(--dim);}
+.lu-max-warn{color:var(--danger);font-size:0.72em;}
+
+/* MORNING OVERLAY */
+#morningOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);
+  z-index:150;align-items:center;justify-content:center;}
+#morningOverlay.active{display:flex;}
+#morningBox{background:var(--panel);border:2px solid var(--accent);border-radius:8px;
+  padding:18px;width:90%;max-width:360px;font-family:'DotGothic16',monospace;}
+#morningBox h2{color:var(--accent);font-size:1em;text-align:center;margin-bottom:4px;
+  text-shadow:0 0 10px #4af6;}
+.mo-info{font-size:0.78em;color:var(--dim);text-align:center;margin-bottom:12px;}
+.mo-status{display:grid;grid-template-columns:1fr 1fr;gap:4px;
+  font-size:0.78em;margin-bottom:12px;background:var(--bg);border-radius:4px;padding:8px;}
+.mo-stat{display:flex;justify-content:space-between;}
+.mo-stat-label{color:var(--dim);}
+.mo-stat-val{color:var(--accent2);}
+.mo-section{font-size:0.8em;color:var(--accent3);margin:8px 0 5px;
+  border-bottom:1px solid var(--border);padding-bottom:3px;}
+.mo-btns{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}
+.mo-row{display:flex;gap:6px;align-items:center;}
+.mo-label{color:var(--text);font-size:0.8em;flex:1;}
+.mo-price{color:var(--dim);font-size:0.75em;min-width:60px;text-align:right;}
+.mo-btn-yes{background:var(--accent);color:#000;border:none;padding:3px 12px;
+  font-family:inherit;font-size:0.78em;border-radius:3px;cursor:pointer;}
+.mo-btn-no{background:var(--border);color:var(--dim);border:none;padding:3px 12px;
+  font-family:inherit;font-size:0.78em;border-radius:3px;cursor:pointer;}
+.mo-btn-yes:hover{opacity:0.8;} .mo-btn-no:hover{color:var(--text);}
+.mo-equip-section{margin-bottom:10px;}
+.mo-equip-row{display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap;}
+.mo-equip-slot{color:var(--dim);font-size:0.76em;min-width:32px;}
+.mo-equip-current{color:var(--accent2);font-size:0.76em;flex:1;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+select.mo-equip-select{background:var(--bg);border:1px solid var(--border);color:var(--text);
+  padding:2px 4px;font-family:inherit;font-size:0.74em;border-radius:3px;flex:1;min-width:0;}
+.mo-equip-btn{background:var(--accent);color:#000;border:none;padding:2px 8px;
+  font-family:inherit;font-size:0.74em;border-radius:3px;cursor:pointer;white-space:nowrap;}
+.mo-equip-btn:hover{opacity:0.8;}
+.mo-equip-unequip{background:var(--border);color:var(--dim);border:none;padding:2px 6px;
+  font-family:inherit;font-size:0.72em;border-radius:3px;cursor:pointer;white-space:nowrap;}
+.mo-equip-unequip:hover{color:var(--danger);}
+
+/* SLEEP OVERLAY */
+#sleepOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.87);
+  z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:12px;}
+#sleepOverlay.active{display:flex;}
+#sleepOverlay h2{color:var(--accent);font-size:1.2em;}
+#sleepOverlay p{color:var(--dim);font-size:0.82em;}
+
+/* LOG */
+#logBox{background:var(--panel);border:1px solid var(--border);border-radius:4px;
+  padding:6px 10px;font-size:0.72em;height:90px;overflow-y:auto;color:var(--dim);}
+#logBox .log-entry{border-bottom:1px solid #0e1218;padding:1px 0;}
+#logBox .log-entry.hi{color:var(--text);}
+#logBox .log-entry.warn{color:var(--accent2);}
+#logBox .log-entry.good{color:var(--accent3);}
+#logBox .log-entry.bad{color:var(--danger);}
+
+/* CONTROLS */
+#controls{display:flex;gap:7px;flex-wrap:wrap;align-items:center;
+  background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:6px 10px;}
+#controls label{font-size:0.75em;color:var(--dim);}
+#speedRange{accent-color:var(--accent);width:90px;}
+
+.mp-fill{background:#a48fff;}
+#cbMagicPanel{background:#0a0818;border:1px solid #4a2a88;border-radius:4px;
+  padding:8px;margin-bottom:8px;text-align:center;display:none;}
+#cbMagicPanel.active{display:block;}
+.cb-magic-title{color:#c8a8ff;font-size:0.82em;margin-bottom:6px;}
+.cb-magic-info{color:var(--dim);font-size:0.74em;margin-bottom:8px;}
+.cb-magic-btns{display:flex;gap:8px;justify-content:center;}
+.cb-magic-yes{background:#7a3aff;color:#fff;border:none;padding:5px 16px;
+  font-family:inherit;font-size:0.8em;border-radius:3px;cursor:pointer;}
+.cb-magic-yes:hover{opacity:0.8;}
+.cb-magic-no{background:var(--border);color:var(--text);border:none;padding:5px 16px;
+  font-family:inherit;font-size:0.8em;border-radius:3px;cursor:pointer;}
+.cb-magic-no:hover{color:var(--accent);}
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+/* SAVE UI */
+#saveNotice{background:#0a1820;border:1px solid var(--accent);border-radius:6px;
+  padding:12px;margin-bottom:12px;display:none;}
+#saveNotice.active{display:block;}
+#saveNotice h3{color:var(--accent);font-size:0.88em;margin-bottom:6px;}
+.save-info{font-size:0.78em;color:var(--dim);margin-bottom:10px;line-height:1.6;}
+.save-info span{color:var(--accent2);}
+.save-btns{display:flex;gap:8px;}
+.save-btn-continue{background:var(--accent);color:#000;border:none;padding:7px 16px;
+  font-family:inherit;font-size:0.82em;border-radius:3px;cursor:pointer;font-weight:bold;}
+.save-btn-continue:hover{opacity:0.8;}
+.save-btn-new{background:var(--border);color:var(--text);border:none;padding:7px 16px;
+  font-family:inherit;font-size:0.82em;border-radius:3px;cursor:pointer;}
+.save-btn-new:hover{color:var(--accent);}
+#autoSaveLabel{font-size:0.75em;color:var(--dim);margin-top:8px;}
+#saveIndicator{position:fixed;top:8px;right:8px;background:#0a1820;
+  border:1px solid var(--accent);border-radius:4px;padding:3px 10px;
+  font-size:0.72em;color:var(--accent);z-index:500;display:none;}
+</style>
+</head>
+<body>
+<h1>⚔ 自立キャラクタRPG <span style="font-size:0.6em;color:var(--dim)">Phase2</span></h1>
+
+<!-- CHARA MAKE SCREEN -->
+<div class="screen active" id="screenChara">
+<!-- セーブデータ確認 -->
+<div id="saveNotice">
+  <h3>💾 セーブデータがあります</h3>
+  <div class="save-info" id="saveInfoText"></div>
+  <div class="save-btns">
+    <button class="save-btn-continue" onclick="loadAndContinue()">▶ 続きから始める</button>
+    <button class="save-btn-new" onclick="startNewGame()">✚ 新しく始める</button>
+  </div>
+</div>
+
+<div id="charaMake">
+  <h2>── キャラクター作成 ──</h2>
+  <div class="cm-row">
+    <label>名前</label>
+    <input type="text" id="charName" value="前田" maxlength="8">
+  </div>
+  <div class="pts-left">残りポイント: <span id="ptsLeft">5</span>　／　10ポイントを5つのパラメータに振り分ける（各1以上）</div>
+  <div class="stat-grid">
+    <div class="stat-item"><label>体力</label><div class="stat-controls">
+      <button onclick="changeStat('hp',-1)">－</button><span class="stat-val" id="sv_hp">1</span><button onclick="changeStat('hp',1)">＋</button></div></div>
+    <div class="stat-item"><label>攻撃力</label><div class="stat-controls">
+      <button onclick="changeStat('atk',-1)">－</button><span class="stat-val" id="sv_atk">1</span><button onclick="changeStat('atk',1)">＋</button></div></div>
+    <div class="stat-item"><label>防御力</label><div class="stat-controls">
+      <button onclick="changeStat('def',-1)">－</button><span class="stat-val" id="sv_def">1</span><button onclick="changeStat('def',1)">＋</button></div></div>
+    <div class="stat-item"><label>知力</label><div class="stat-controls">
+      <button onclick="changeStat('int',-1)">－</button><span class="stat-val" id="sv_int">1</span><button onclick="changeStat('int',1)">＋</button></div></div>
+    <div class="stat-item"><label>素早さ</label><div class="stat-controls">
+      <button onclick="changeStat('agi',-1)">－</button><span class="stat-val" id="sv_agi">1</span><button onclick="changeStat('agi',1)">＋</button></div></div>
+  </div>
+  <div id="personalityPreview" style="color:var(--accent3);font-size:0.8em;margin:7px 0;"></div>
+  <div id="autoSaveLabel">
+    <label style="cursor:pointer;">
+      <input type="checkbox" id="enableAutoSave" checked style="accent-color:var(--accent);">
+      オートセーブを有効にする（就寝時に自動保存）
+    </label>
+  </div>
+  <button class="btn" onclick="startGame()" style="margin-top:8px;">ゲーム開始</button>
+</div>
+</div>
+
+<!-- セーブインジケーター -->
+<div id="saveIndicator">💾 セーブ完了</div>
+
+<!-- GAME SCREEN -->
+<div class="screen" id="game">
+
+  <div id="statusBar">
+    <div class="sb-item"><span class="sb-label">日</span><span class="sb-val" id="sbDay">1</span></div>
+    <div class="sb-item"><span class="sb-label">時刻</span><span class="sb-val" id="sbTime">6:00</span></div>
+    <div class="sb-item"><span class="sb-label">Lv</span><span class="sb-val" id="sbLv">1</span></div>
+    <div class="sb-item"><span class="sb-label">HP</span>
+      <div class="sb-bar"><div class="sb-bar-fill hp-fill" id="hpBar" style="width:100%"></div></div>
+      <span class="sb-val" id="sbHp">20/20</span></div>
+    <div class="sb-item"><span class="sb-label">EXP</span><span class="sb-val" id="sbExp">0</span></div>
+    <div class="sb-item"><span class="sb-label">G</span><span class="sb-val" id="sbGold">100</span></div>
+    <div class="sb-item"><span class="sb-label">満腹</span>
+      <div class="sb-bar"><div class="sb-bar-fill food-fill" id="foodBar" style="width:100%"></div></div>
+      <span class="sb-val" id="sbFood">100</span></div>
+    <div class="sb-item"><span class="sb-label">睡眠</span>
+      <div class="sb-bar"><div class="sb-bar-fill sleep-fill" id="sleepBar" style="width:100%"></div></div>
+      <span class="sb-val" id="sbSleep">100</span></div>
+    <div class="sb-item"><span class="sb-label">MP</span>
+      <div class="sb-bar"><div class="sb-bar-fill mp-fill" id="mpBar" style="width:100%"></div></div>
+      <span class="sb-val" id="sbMp">10/10</span></div>
+    <div class="sb-item"><span class="sb-label">神P</span><span class="sb-val" id="sbGodP">0</span></div>
+    <span id="mapLabel">村内</span>
+  </div>
+
+  <div id="mainArea">
+    <!-- マップ：横幅いっぱい -->
+    <div id="mapWrap"><div id="mapCanvas"></div></div>
+
+    <!-- 情報パネル：2列グリッド -->
+    <div id="rightPanel">
+
+      <!-- キャラ情報（左） -->
+      <div class="panel-box">
+        <h3>キャラクター</h3>
+        <div id="personalityBadge" class="personality-badge">体力バカ</div>
+        <div class="stat-detail-grid" id="statDetail"></div>
+        <div id="equipDisplay" style="margin-top:5px;font-size:0.76em;color:var(--dim);">装備：なし</div>
+      </div>
+
+      <!-- 行動（右） -->
+      <div class="panel-box">
+        <h3>行動</h3>
+        <div id="thoughtBox">「……」</div>
+        <div id="actionBox">待機中</div>
+        <div id="systemBox"></div>
+        <div id="questBox" class="quest-box" style="display:none;"></div>
+      </div>
+
+      <!-- インベントリ（全幅） -->
+      <div class="panel-box" id="invPanel">
+        <h3>インベントリ <span id="invCount" style="color:var(--dim);">0/20</span></h3>
+        <div id="invGrid"></div>
+      </div>
+
+      <!-- 神ポイント（全幅） -->
+      <div id="godPanel">
+        <h3>⚡ 神ポイント</h3>
+        <div class="gp-display">神P: <span id="gpVal">0</span></div>
+        <div class="gp-btns">
+          <button class="gp-btn" onclick="godCommand('ganban')">ガンガン行こう(5P)</button>
+          <button class="gp-btn" onclick="godCommand('inochi')">命大事に(5P)</button>
+          <button class="gp-btn" onclick="godCommand('sagashi')">探索重視(5P)</button>
+          <button class="gp-btn" onclick="godCommand('kaero')">帰ろう(5P)</button>
+          <button class="gp-btn" onclick="godBless()">装備祝福(10P)</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="logBox"></div>
+
+  <div id="controls">
+    <label>速度:</label>
+    <input type="range" id="speedRange" min="1" max="10" value="5">
+    <span id="speedLabel" style="font-size:0.75em;color:var(--dim);">×5</span>
+    <button class="btn" onclick="togglePause()" id="pauseBtn">⏸ 一時停止</button>
+    <button class="btn btn-dim" onclick="resetGame()">🔄 リセット</button>
+  </div>
+</div>
+
+<!-- MORNING OVERLAY -->
+<div id="morningOverlay">
+  <div id="morningBox">
+    <h2>🌅 おはようございます</h2>
+    <div class="mo-info" id="moDayInfo">1日目の朝</div>
+    <div class="mo-status" id="moStatus"></div>
+    <div class="mo-section">⚔ 装備変更</div>
+    <div class="mo-equip-section" id="moEquipSection"></div>
+    <div class="mo-section">今日の行動計画</div>
+    <div class="mo-btns">
+      <div class="mo-row">
+        <span class="mo-label">🛒 アイテム屋に行く</span>
+        <span class="mo-price" id="moItemPrice"></span>
+        <button class="mo-btn-yes" onclick="morningChoice('item',true)">行く</button>
+        <button class="mo-btn-no"  onclick="morningChoice('item',false)">スキップ</button>
+      </div>
+      <div class="mo-row">
+        <span class="mo-label">⚔ 武器屋に行く</span>
+        <span class="mo-price" id="moWeaponPrice"></span>
+        <button class="mo-btn-yes" onclick="morningChoice('weapon',true)">行く</button>
+        <button class="mo-btn-no"  onclick="morningChoice('weapon',false)">スキップ</button>
+      </div>
+    </div>
+    <button class="btn" onclick="startDay()" id="moStartBtn"
+      style="width:100%;margin-top:4px;" disabled>出発！</button>
+  </div>
+</div>
+
+<!-- LEVELUP OVERLAY -->
+<div id="levelupOverlay">
+  <div id="levelupBox">
+    <h2>★ レベルアップ！</h2>
+    <div class="lu-sub">Lv<span id="luLvOld">1</span> → <span id="luLvNew" style="color:var(--accent2)">2</span></div>
+    <div style="font-size:0.8em;color:var(--dim);text-align:center;margin-bottom:8px;">
+      現在のステータス（最大値15）
+    </div>
+    <div id="luCurrentStats" class="lu-current"></div>
+    <div class="lu-pts">振り分けポイント：残り <span id="luPtsLeft">5</span> pt</div>
+    <div id="luStatGrid" class="lu-stat-grid"></div>
+    <div style="margin-top:10px;font-size:0.76em;color:var(--dim);text-align:center;">
+      ※体力を上げるとHPも増加します
+    </div>
+    <button class="btn" onclick="confirmLevelUp()" id="luConfirmBtn" style="width:100%;margin-top:12px;">
+      決定
+    </button>
+  </div>
+</div>
+
+<!-- SLEEP OVERLAY -->
+<div id="sleepOverlay">
+  <h2>Zzz... 就寝中</h2>
+  <p id="sleepMsg">翌朝まで休んでいます</p>
+  <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
+    <p style="color:var(--accent3);font-size:0.82em;">神ポイントを使いますか？（神P: <span id="sleepGP">0</span>）</p>
+    <div class="gp-btns" style="justify-content:center;">
+      <button class="gp-btn" onclick="godCommand('ganban')">ガンガン行こう(5P)</button>
+      <button class="gp-btn" onclick="godCommand('inochi')">命大事に(5P)</button>
+      <button class="gp-btn" onclick="godCommand('sagashi')">探索重視(5P)</button>
+      <button class="gp-btn" onclick="godCommand('kaero')">帰ろう(5P)</button>
+      <button class="gp-btn" onclick="godBless()">装備祝福(10P)</button>
+    </div>
+    <button class="btn" onclick="wakeUp()" style="margin-top:6px;">起床する</button>
+  </div>
+</div>
+
+<!-- COMBAT OVERLAY -->
+<div id="combatOverlay">
+  <div id="combatBox">
+    <h2>⚔ 戦闘！</h2>
+    <div class="cb-fighters">
+      <div class="cb-side">
+        <h3 id="cbPlayerName">前田</h3>
+        <div class="cb-hp-bar"><div class="cb-hp-fill" id="cbPlayerHp" style="width:100%"></div></div>
+        <div id="cbPlayerHpText" style="font-size:0.8em;color:var(--accent3);">HP: 20/20</div>
+        <div id="cbPlayerAtk" style="font-size:0.75em;color:var(--dim);margin-top:3px;"></div>
+      </div>
+      <div style="display:flex;align-items:center;font-size:1.2em;color:var(--danger);">VS</div>
+      <div class="cb-side">
+        <h3 id="cbEnemyName">スライム</h3>
+        <div class="cb-hp-bar"><div class="cb-hp-fill" id="cbEnemyHp" style="width:100%"></div></div>
+        <div id="cbEnemyHpText" style="font-size:0.8em;color:var(--danger);">HP: 3/3</div>
+        <div id="cbEnemyStats" style="font-size:0.75em;color:var(--dim);margin-top:3px;"></div>
+      </div>
+    </div>
+    <div id="cbMagicPanel">
+      <div class="cb-magic-title">🔥 ファイヤーを使いますか？</div>
+      <div class="cb-magic-info" id="cbMagicInfo"></div>
+      <div class="cb-magic-btns">
+        <button class="cb-magic-yes" onclick="useMagicInCombat()">使う</button>
+        <button class="cb-magic-no"  onclick="skipMagicInCombat()">使わない</button>
+      </div>
+    </div>
+    <div id="combatLog"></div>
+    <div id="cbStatus" style="text-align:center;color:var(--accent2);font-size:0.82em;">戦闘中…</div>
+  </div>
+</div>
+
+<!-- SHOP OVERLAY -->
+<div id="shopOverlay">
+  <div id="shopBox">
+    <h2 id="shopTitle">🛒 アイテム屋</h2>
+    <div id="shopGold">所持金: <span id="shopGoldVal">0</span>G</div>
+    <div id="shopItems"></div>
+    <div style="margin-top:10px;font-size:0.78em;color:var(--dim);">── 売却 ──</div>
+    <div id="shopSell" style="margin-top:5px;"></div>
+    <button class="btn btn-dim" onclick="closeShop()" style="margin-top:10px;">閉じる</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ============================================================
+// VILLAGE MAP
+// ============================================================
+const VILLAGE_RAW = [
+  "○○○○○○○○○○○○○○○○",
+  "○｜｜｜｜｜井・・＊・・ｘ・・○",
+  "○｜｜｜｜｜・・・＊・家ｘ・・○",
+  "○｜｜｜｜農・・・＊家食ｘ・家○",
+  "○｜｜｜｜｜・ｘｘｘｘｘｘｘｘ○",
+  "○｜｜｜｜｜・ｘ・＊・・ｘア・○",
+  "○・・・・・・ｘ教＊・・ｘ・・○",
+  "○・・・・・・ｘ・＊・・ｘ・・○",
+  "◎ｘｘｘｘｘｘｘｘｘｘｘｘ冒・○",
+  "◎Ｇ・・・・家ｘ家＊・・ｘ・・○",
+  "○・・・・・・ｘ・＊・・ｘ・・○",
+  "○・・・・・自ｘ・＊・・ｘ・・○",
+  "○・・・・・・ｘど＊・・ｘ武・○",
+  "○・・・・・・ｘ・＊＊＊＊＊＊○",
+  "○・・・・・・ｘ害＊＊＊＊＊＊○",
+  "○○○○○○○○○○○○○○○○",
+];
+
+// ============================================================
+// OUTER WORLD MAP
+// ============================================================
+const OUTER_RAW = [
+  "山山山山山山森森森森林林＋＋＋◆",
+  "山ダ◆◆◆◆◆森森林林＋＋＋◆◆",
+  "山山山山山森◆◆◆◆◆◆◆◆◆＋",
+  "山山山山森森森森林林＋＋◆◆＋＋",
+  "山山山山森森森林林＋＋◆◆＋＋＋",
+  "山山山森森森林林＋＋◆◆＋＋＋＋",
+  "山山山森森林林＋＋◆◆＋＋＋＋＋",
+  "山山森森林林＋＋◆◆＋＋＋＋＋＋",
+  "山森森林林＋＋＋◆◆＋＋＋＋＋＋",
+  "森森林林＋＋＋◆◆村＋＋＋＋＋＋",
+  "森林林＋＋＋◆◆◆◆◆◆◆◆城＋",
+  "林林＋＋＋＋◆◆＋＋＋＋＋＋＋＋",
+  "林＋＋＋＋＋◆◆＋＋＋＋湿湿湿湿",
+  "＋＋＋＋＋◆◆＋＋＋湿湿湖湖湖湖",
+  "＋＋＋＋＋◆◆＋湿湿湖湖湖湖湖湖",
+  "＋＋＋＋＋◆◆湿湿湖湖湖湖湖湖湖",
+];
+
+function splitRow(row){ return [...row]; }
+const VMAP = VILLAGE_RAW.map(splitRow);
+const OMAP = OUTER_RAW.map(splitRow);
+const ROWS=16, COLS=16;
+
+// Walkable sets
+const V_WALK = new Set(['・','ｘ','◎','自','ア','教','食','冒','井','武','Ｇ']);
+const O_WALK_ALL = new Set(['◆','＋','林','森','湿','山','村','ダ','城']);
+// Move costs for outer
+const O_COST = {'◆':1,'＋':2,'湿':3,'林':4,'森':5,'山':6,'村':1,'ダ':1,'城':1};
+
+function isVWalk(r,c){ if(r<0||r>=ROWS||c<0||c>=COLS)return false; return V_WALK.has(VMAP[r][c]); }
+function isOWalk(r,c,lv){
+  if(r<0||r>=ROWS||c<0||c>=COLS)return false;
+  const ch=OMAP[r][c];
+  if(!O_WALK_ALL.has(ch))return false;
+  const cost=O_COST[ch]||1;
+  return cost<=lv; // can't traverse terrain with cost > level
+}
+
+// Named village positions
+function findV(ch){ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(VMAP[r][c]===ch)return{r,c}; return{r:1,c:1}; }
+const VP={
+  home:findV('自'), itemShop:findV('ア'), weapon:findV('武'),
+  church:findV('教'), food:findV('食'), guild:findV('冒'),
+  well:findV('井'), gate:{r:8,c:0}, gateExit:{r:9,c:1},
+  dubSweep:findV('ど'), farm:findV('農'), slime:findV('害'),
+};
+// Outer village position (where player enters/exits)
+const O_VILLAGE = findInOuter('村');
+function findInOuter(ch){ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(OMAP[r][c]===ch)return{r,c}; return{r:9,c:9}; }
+
+// ============================================================
+// A* (generic)
+// ============================================================
+function astar(start, goal, walkFn, costFn){
+  const adj=getAdjWalk(goal.r,goal.c,walkFn);
+  if(adj.length===0)return[];
+  let best=adj[0],bd=Math.abs(adj[0].r-start.r)+Math.abs(adj[0].c-start.c);
+  for(const t of adj){const d=Math.abs(t.r-start.r)+Math.abs(t.c-start.c);if(d<bd){bd=d;best=t;}}
+  const end=best;
+  if(end.r===start.r&&end.c===start.c)return[];
+  const K=(r,c)=>r*100+c;
+  const open=new Map(),closed=new Set(),g=new Map(),f=new Map(),par=new Map();
+  const h=(r,c)=>Math.abs(r-end.r)+Math.abs(c-end.c);
+  const sk=K(start.r,start.c);
+  g.set(sk,0);f.set(sk,h(start.r,start.c));open.set(sk,start);
+  const dirs=[{r:-1,c:0},{r:1,c:0},{r:0,c:-1},{r:0,c:1}];
+  let iter=0;
+  while(open.size>0&&iter++<600){
+    let cur=null,curK=null,minF=Infinity;
+    for(const[k,p]of open){if(f.get(k)<minF){minF=f.get(k);cur=p;curK=k;}}
+    open.delete(curK);closed.add(curK);
+    if(cur.r===end.r&&cur.c===end.c){
+      const path=[];let k=curK;
+      while(par.has(k)){path.unshift({r:Math.floor(k/100),c:k%100});k=par.get(k);}
+      return path;
+    }
+    for(const d of dirs){
+      const nr=cur.r+d.r,nc=cur.c+d.c,nk=K(nr,nc);
+      if(closed.has(nk)||!walkFn(nr,nc))continue;
+      const ng=(g.get(curK)||0)+(costFn?costFn(nr,nc):1);
+      if(!open.has(nk)||ng<(g.get(nk)||Infinity)){
+        g.set(nk,ng);f.set(nk,ng+h(nr,nc));par.set(nk,curK);open.set(nk,{r:nr,c:nc});
+      }
+    }
+  }
+  return[];
+}
+
+function getAdjWalk(r,c,walkFn){
+  const dirs=[{r:-1,c:0},{r:1,c:0},{r:0,c:-1},{r:0,c:1}];
+  const res=[];
+  for(const d of dirs){const nr=r+d.r,nc=c+d.c;if(walkFn(nr,nc))res.push({r:nr,c:nc});}
+  if(walkFn(r,c))res.push({r,c});
+  return res;
+}
+function isAdj(a,b){return Math.abs(a.r-b.r)<=1&&Math.abs(a.c-b.c)<=1;}
+
+// ============================================================
+// EQUIPMENT & ITEMS
+// ============================================================
+// slot: 'onehand'=片手武器 'twohand'=両手武器 'shield'=シールド 'armor'=防具
+const WEAPONS={
+  'ナイフ':          {price:0,  sell:5,  atk:1,slot:'onehand',desc:'攻撃+1 初期装備'},
+  'ショートソード':  {price:200,sell:100,atk:2,slot:'onehand',desc:'攻撃+2'},
+  'ロングボウ':      {price:400,sell:200,atk:2,slot:'twohand',bow:true,desc:'攻撃+2 先制2T'},
+  'バスタードソード':{price:600,sell:300,atk:4,slot:'twohand',desc:'攻撃+4(両手)'},
+};
+const ARMORS={
+  '村人の服':        {price:0,  sell:5,  def:1,slot:'armor',desc:'防御+1 初期装備'},
+  'レザーメイル':    {price:400,sell:200,def:2,agi:1,searchBonus:10,slot:'armor',desc:'防御+2 素早+1 探索+10%'},
+  'チェインメイル':  {price:800,sell:400,def:4,agi:-1,blockChance:0.1,slot:'armor',desc:'防御+4 素早-1 10%無効'},
+};
+const SHIELDS={
+  'スモールシールド':{price:200,sell:100,def:1,blockChance:0.1,slot:'shield',desc:'防御+1 10%無効'},
+};
+// 全装備品のマスターテーブル（スロット判定用）
+function getItemDef(name){return WEAPONS[name]||ARMORS[name]||SHIELDS[name]||null;}
+function getItemSlot(name){const d=getItemDef(name);return d?d.slot:null;}
+const CONSUMABLES={
+  '食料':{price:10,sell:0,desc:'満腹度+100'},
+  '薬':  {price:100,sell:50,desc:'HP全回復'},
+};
+const SELL_ITEMS={
+  '薬草':{sell:50},'上級薬草':{sell:200},'薪':{sell:100},'木材':{sell:300},'鉱石':{sell:300},
+  '討伐の証(スライム)':{sell:0},'討伐の証(街道スライム)':{sell:0},'討伐の証(ビー)':{sell:0},'討伐の証(スネーク)':{sell:0},'討伐の証(ゴブリン)':{sell:0},'討伐の証(ウルフ)':{sell:0},'討伐の証(ゴーレム)':{sell:0},
+};
+
+// Personality preferred equipment
+const PREF_EQUIP={
+  hp:  {weapon:'バスタードソード',armor:'レザーメイル',shield:null},
+  atk: {weapon:'バスタードソード',armor:'チェインメイル',shield:null},
+  def: {weapon:'ロングボウ',armor:'レザーメイル',shield:null},
+  int: {weapon:'ショートソード',armor:'チェインメイル',shield:'スモールシールド'},
+  agi: {weapon:'ショートソード',armor:'レザーメイル',shield:'スモールシールド'},
+};
+
+// ============================================================
+// MONSTERS
+// ============================================================
+// モンスターHP = 体力×10（仕様書準拠）
+const MONSTERS={
+  'スライム':      {hp:10, maxHp:10, atk:1, def:1, agi:1, lv:1, proof:'討伐の証(スライム)'},
+  '街道スライム':  {hp:30, maxHp:30, atk:3, def:3, agi:3, lv:2, proof:'討伐の証(街道スライム)'},
+  'ビー':          {hp:50, maxHp:50, atk:5, def:4, agi:6, lv:3, proof:'討伐の証(ビー)'},
+  'スネーク':      {hp:80, maxHp:80, atk:8, def:6, agi:8, lv:4, proof:'討伐の証(スネーク)'},
+  'ゴブリン':      {hp:100,maxHp:100,atk:10,def:8, agi:10,lv:5, proof:'討伐の証(ゴブリン)'},
+  'ウルフ':        {hp:130,maxHp:130,atk:10,def:10,agi:13,lv:6, proof:'討伐の証(ウルフ)'},
+  'ゴーレム':      {hp:150,maxHp:150,atk:13,def:15,agi:10,lv:7, proof:'討伐の証(ゴーレム)'},
+};
+// 地形ごとの発生モンスター（仕様書準拠）
+const ZONE_MONSTER={'◆':'街道スライム','＋':'ビー','湿':'スネーク','林':'ゴブリン','森':'ウルフ','山':'ゴーレム'};
+
+// ============================================================
+// QUESTS
+// ============================================================
+const QUESTS_LV1=[
+  {id:'dub', name:'ドブ掃除',    gold:20,exp:10, hours:3,type:'gather',target:'dubSweep'},
+  {id:'farm',name:'農家の手伝い',gold:50,exp:10, hours:6,type:'gather',target:'farm'},
+  {id:'slime',name:'スライム駆除',gold:10,exp:30,hours:1,type:'combat',target:'slime',enemy:'スライム',proof:'討伐の証(スライム)'},
+];
+const QUEST_GATE={id:'gate',name:'門の確認',gold:20,exp:10,hours:2,type:'event',target:'gateExit'};
+const OUTER_QUESTS=[
+  // 採取系
+  {id:'herb',  name:'薬草の採取',    gold:25, exp:25,  hours:2,type:'gather',lv:2,item:'薬草'},
+  {id:'wood',  name:'薪の採取',      gold:50, exp:40,  hours:2,type:'gather',lv:3,item:'薪'},
+  {id:'wood2', name:'薪の採取',      gold:150,exp:75,  hours:2,type:'gather',lv:5,item:'薪'},
+  {id:'wood3', name:'薪の採取',      gold:250,exp:150, hours:2,type:'gather',lv:7,item:'薪'},
+  {id:'hherb', name:'上級薬草の採取',gold:100,exp:50,  hours:2,type:'gather',lv:4,item:'上級薬草'},
+  {id:'hwood', name:'木材の採取',    gold:200,exp:100, hours:2,type:'gather',lv:6,item:'木材'},
+  // 討伐系
+  {id:'slime2', name:'街道スライム討伐',gold:50, exp:50, type:'combat',lv:2,enemy:'街道スライム',proof:'討伐の証(街道スライム)'},
+  {id:'bee',    name:'ビー討伐',       gold:100,exp:80, type:'combat',lv:3,enemy:'ビー',          proof:'討伐の証(ビー)'},
+  {id:'snake',  name:'スネーク討伐',   gold:200,exp:100,type:'combat',lv:4,enemy:'スネーク',      proof:'討伐の証(スネーク)'},
+  {id:'goblin', name:'ゴブリン討伐',   gold:300,exp:150,type:'combat',lv:5,enemy:'ゴブリン',      proof:'討伐の証(ゴブリン)'},
+  {id:'wolf',   name:'ウルフ討伐',     gold:400,exp:200,type:'combat',lv:6,enemy:'ウルフ',        proof:'討伐の証(ウルフ)'},
+  {id:'golem',  name:'ゴーレム討伐',   gold:500,exp:300,type:'combat',lv:7,enemy:'ゴーレム',      proof:'討伐の証(ゴーレム)'},
+];
+
+// ============================================================
+// PERSONALITY
+// ============================================================
+const PERSONALITY={
+  hp: {name:'体力バカ', thoughts:['「筋肉があれば何とかなる！」','「HP重視！体が大事！」','「もっと強くなれる！」']},
+  atk:{name:'勇敢',     thoughts:['「モンスタを倒せ！」','「強敵ほど燃える！」','「前へ進め！」']},
+  def:{name:'臆病',     thoughts:['「敵が強そうだから逃げよう…」','「慎重に行こう…」','「危ないのは嫌だ」']},
+  int:{name:'内向的',   thoughts:['「天気も良いし本でも読むかな」','「もっと頭を使おう」','「静かな方が好き」']},
+  agi:{name:'収集癖',   thoughts:['「キラキラ光るものを見つけた」','「何かいいものないかな～」','「素早さが命！」']},
+};
+const PRIORITY_ORDER=['hp','atk','def','int','agi'];
+
+function determinePersonality(stats){
+  const mv=Math.max(stats.hp,stats.atk,stats.def,stats.int,stats.agi);
+  for(const p of PRIORITY_ORDER)if(stats[p]===mv)return p;
+  return 'hp';
+}
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let G={};
+
+function initGame(name,stats){
+  const pk=determinePersonality(stats);
+  const bs={...stats};
+  bs[pk]=Math.min(15,bs[pk]+1);
+  G={
+    name,stats:bs,baseStats:{...bs},personalityKey:pk,personality:PERSONALITY[pk],
+    level:1,exp:0,
+    maxHP:bs.hp*10,hp:bs.hp*10,
+    gold:100,food:100,sleep:100,godPoints:0,
+    mp:0,maxMp:0, // MPは知力×10（updateMaxMP()で設定）
+    // position
+    inVillage:true,
+    pos:{...VP.home},facing:'S',
+    outerPos:{r:9,c:9}, // near village on outer map
+    path:[],pathTarget:null,
+    // AI
+    aiState:'WAKEUP',aiTimer:0,
+    // time
+    hour:6,minute:0,day:1,
+    // day flags
+    eatenBreakfast:false,eatenLunch:false,eatenDinner:false,
+    boughtFood:false,boughtMeds:false,
+    mealCount:0,searchToday:0,
+    // quest
+    currentQuest:null,questDone:false,guildRewarded:false,
+    // flags
+    gateSeen:false,isPaused:false,isSleeping:false,
+    godCmd:null,
+    // inventory & equip
+    inventory:['食料','食料','食料'],
+    equipment:{right:'ナイフ',left:null,armor:'村人の服'},
+    equipBless:{right:0,left:0,armor:0},
+    // combat state (for overlay)
+    combatPending:null,
+    // shop
+    shopOpen:false,
+    // outer quest target
+    outerTarget:null,
+    // stats for outer monsters encountered
+    monstersKilled:0,
+    // game time (days survived)
+    totalDays:0,
+    _wasNight:false,
+    visitedWeapon:false,
+    morningGoItem:false,
+    morningGoWeapon:false,
+    sleepDebuff:false,
+    autoSave:false, // startGame()でセット
+    emergencyEat:false,
+  };
+  // MP初期化
+  G.maxMp=G.stats.int*10;
+  G.mp=G.maxMp;
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function isDay(){return G.hour>=6&&G.hour<18;}
+function updateMaxMP(){
+  G.maxMp=G.stats.int*10;
+  G.mp=Math.min(G.mp,G.maxMp); // MPが超えてたら切る
+}
+function curMap(){return G.inVillage?VMAP:OMAP;}
+function curPos(){return G.inVillage?G.pos:G.outerPos;}
+function setCurPos(p){if(G.inVillage)G.pos=p;else G.outerPos=p;}
+
+function vWalkFn(r,c){return isVWalk(r,c);}
+function oWalkFn(r,c){return isOWalk(r,c,G.level);}
+function oCostFn(r,c){return O_COST[OMAP[r]?.[c]]||1;}
+
+function setVPath(target){G.path=astar(G.pos,target,vWalkFn,null);G.pathTarget=target;}
+function setOPath(target){G.path=astar(G.outerPos,target,oWalkFn,oCostFn);G.pathTarget=target;}
+
+function advanceTime(minutes){
+  G.minute+=minutes;
+  while(G.minute>=60){G.minute-=60;G.hour++;}
+  while(G.hour>=24){G.hour-=24;G.day++;G.totalDays++;onNewDay();}
+  const hrs=minutes/60;
+  G.food=Math.max(0,G.food-hrs*5);
+  G.sleep=Math.max(0,G.sleep-hrs*5);
+}
+function onNewDay(){
+  G.eatenBreakfast=false;G.eatenLunch=false;G.eatenDinner=false;
+  G.boughtFood=false;G.boughtMeds=false;G.searchToday=0;G.mealCount=0;
+  G.visitedWeapon=false; // 武器屋訪問フラグを毎日リセット
+  G.godPoints=Math.min(10,G.godPoints+3);
+}
+
+function stepPath(){
+  if(G.path.length===0)return false;
+  const nx=G.path.shift();
+  const dr=nx.r-curPos().r,dc=nx.c-curPos().c;
+  if(dr<0)G.facing='N';else if(dr>0)G.facing='S';
+  else if(dc<0)G.facing='W';else G.facing='E';
+  setCurPos(nx);
+  // time per step: village=0.2h=12min, outer=cost*12min
+  if(G.inVillage){advanceTime(12);}
+  else{const cost=oCostFn(nx.r,nx.c);advanceTime(cost*12);}
+  return true;
+}
+
+function eatFood(){
+  const idx=G.inventory.indexOf('食料');
+  if(idx>=0){G.inventory.splice(idx,1);G.food=100;addLog('食料を食べた','good');return true;}
+  return false;
+}
+function useMed(){
+  const idx=G.inventory.indexOf('薬');
+  if(idx>=0){G.inventory.splice(idx,1);G.hp=G.maxHP;addLog('薬を使ってHP全回復！','good');return true;}
+  return false;
+}
+
+// Effective stats (with equipment) - 新スロット: right/left/armor
+function effAtk(){
+  let v=G.stats.atk;
+  const r=G.equipment.right, l=G.equipment.left;
+  if(r&&WEAPONS[r]) v+=WEAPONS[r].atk+(G.equipBless.right||0);
+  if(l&&WEAPONS[l]) v+=WEAPONS[l].atk+(G.equipBless.left||0);
+  return v;
+}
+function effDef(){
+  let v=G.stats.def;
+  const a=G.equipment.armor, l=G.equipment.left;
+  if(a&&ARMORS[a])  v+=ARMORS[a].def+(G.equipBless.armor||0);
+  if(l&&SHIELDS[l]) v+=SHIELDS[l].def+(G.equipBless.left||0);
+  return v;
+}
+function effAgi(){
+  let v=G.stats.agi;
+  const a=G.equipment.armor;
+  if(a&&ARMORS[a]&&ARMORS[a].agi) v+=ARMORS[a].agi;
+  return Math.max(1,v);
+}
+function blockChance(){
+  let b=0;
+  const a=G.equipment.armor, l=G.equipment.left;
+  if(a&&ARMORS[a]&&ARMORS[a].blockChance) b+=ARMORS[a].blockChance;
+  if(l&&SHIELDS[l]&&SHIELDS[l].blockChance) b+=SHIELDS[l].blockChance;
+  return b;
+}
+function hasBowEquipped(){
+  const r=G.equipment.right;
+  return r&&WEAPONS[r]&&WEAPONS[r].bow;
+}
+function searchRate(){
+  let r=0.2;
+  const pk=G.personalityKey;
+  if(pk==='agi')r=0.5;
+  const a=G.equipment.armor;
+  if(a&&ARMORS[a]&&ARMORS[a].searchBonus)r+=ARMORS[a].searchBonus/100;
+  if(G.godCmd==='sagashi')r+=0.1;
+  return r;
+}
+
+// ギルド報酬受取（依頼分）
+function claimQuestReward(){
+  const q=G.currentQuest;
+  if(!q)return;
+  G.gold+=q.gold;G.exp+=q.exp;
+  addLog(`依頼完了「${q.name}」+${q.gold}G +${q.exp}EXP`,'good');
+  G.guildRewarded=true;
+  checkLevelUp();
+  G.currentQuest=null;G.questDone=false;
+}
+
+// 討伐の証を全て換金（依頼・ランダムエンカウント共通）
+const PROOF_REWARD={
+  '討伐の証(スライム)':     {gold:10, exp:15},
+  '討伐の証(街道スライム)': {gold:20, exp:20},
+  '討伐の証(ビー)':         {gold:40, exp:35},
+  '討伐の証(スネーク)':     {gold:60, exp:50},
+  '討伐の証(ゴブリン)':     {gold:90, exp:70},
+  '討伐の証(ウルフ)':       {gold:120,exp:90},
+  '討伐の証(ゴーレム)':     {gold:160,exp:120},
+};
+function redeemAllProofs(){
+  let totalGold=0, totalExp=0, count=0;
+  const proofNames=Object.keys(PROOF_REWARD);
+  for(const name of proofNames){
+    while(G.inventory.includes(name)){
+      const idx=G.inventory.indexOf(name);
+      G.inventory.splice(idx,1);
+      totalGold+=PROOF_REWARD[name].gold;
+      totalExp +=PROOF_REWARD[name].exp;
+      count++;
+    }
+  }
+  if(count>0){
+    G.gold+=totalGold;G.exp+=totalExp;
+    addLog(`討伐の証×${count}を換金！+${totalGold}G +${totalExp}EXP`,'good');
+    checkLevelUp();
+  }
+}
+
+// Level-up check
+let _luPending = false; // レベルアップ振り分け待ち
+let _luPoints = {};     // 振り分け中のポイント仮置き
+let _luRemain = 0;      // 残りポイント
+
+function checkLevelUp(){
+  const thr=G.level*100;
+  if(G.exp>=thr){
+    G.exp-=thr;
+    openLevelUpScreen();
+  }
+}
+
+function openLevelUpScreen(){
+  _luPending=true;
+  G.isPaused=true;
+  const oldLv=G.level;
+  G.level++;
+  // 振り分けポイント5pt（仕様書準拠）
+  _luRemain=5;
+  _luPoints={hp:0,atk:0,def:0,int:0,agi:0};
+
+  document.getElementById('luLvOld').textContent=oldLv;
+  document.getElementById('luLvNew').textContent=G.level;
+  renderLuStats();
+  document.getElementById('levelupOverlay').classList.add('active');
+  addLog(`★ レベルアップ！Lv${G.level}！ステータスを振り分けてください`,'good');
+}
+
+function renderLuStats(){
+  document.getElementById('luPtsLeft').textContent=_luRemain;
+
+  // 現在ステータス表示
+  const cur=document.getElementById('luCurrentStats');
+  const labels={hp:'体力',atk:'攻撃力',def:'防御力',int:'知力',agi:'素早さ'};
+  cur.innerHTML='';
+  for(const k of ['hp','atk','def','int','agi']){
+    const base=G.stats[k];
+    const add=_luPoints[k];
+    const newVal=base+add;
+    const atMax=newVal>=15;
+    const row=document.createElement('div');
+    row.className='lu-row';
+    row.innerHTML=`<span class="lu-label">${labels[k]}</span>
+      <span><span class="lu-cur">${base}</span>
+      ${add>0?`<span class="lu-arrow">+${add}→</span><span class="lu-new">${newVal}</span>`:''}
+      ${atMax?'<span class="lu-max-warn"> MAX</span>':''}</span>`;
+    cur.appendChild(row);
+  }
+
+  // 振り分けコントロール
+  const grid=document.getElementById('luStatGrid');
+  grid.innerHTML='';
+  for(const k of ['hp','atk','def','int','agi']){
+    const cur2=G.stats[k]+_luPoints[k];
+    const atMax=cur2>=15;
+    const item=document.createElement('div');
+    item.className='lu-stat-item';
+    item.innerHTML=`<label>${labels[k]}</label>
+      <div class="lu-stat-controls">
+        <button onclick="luChangeStat('${k}',-1)">－</button>
+        <span class="lu-stat-val">${_luPoints[k]}</span>
+        <button onclick="luChangeStat('${k}',1)" ${(atMax||_luRemain<=0)?'disabled':''}>＋</button>
+      </div>`;
+    grid.appendChild(item);
+  }
+  document.getElementById('luConfirmBtn').disabled=(_luRemain>0);
+  document.getElementById('luConfirmBtn').textContent=
+    _luRemain>0?`残り${_luRemain}pt振り分けてください`:'決定';
+}
+
+function luChangeStat(key,delta){
+  if(delta>0&&(_luRemain<=0||G.stats[key]+_luPoints[key]>=15))return;
+  if(delta<0&&_luPoints[key]<=0)return;
+  _luPoints[key]+=delta;
+  _luRemain-=delta;
+  renderLuStats();
+}
+
+function confirmLevelUp(){
+  if(_luRemain>0)return;
+  // ステータスに反映
+  for(const k of ['hp','atk','def','int','agi']){
+    G.stats[k]=Math.min(15,G.stats[k]+_luPoints[k]);
+  }
+  // baseStatsも更新（睡眠不足回復用）
+  G.baseStats={...G.stats};
+  G.maxHP=G.stats.hp*10;
+  G.hp=G.maxHP; // レベルアップでHP全回復
+  updateMaxMP();G.mp=G.maxMp; // レベルアップでMP全回復
+  _luPending=false;
+  G.isPaused=false;
+  document.getElementById('levelupOverlay').classList.remove('active');
+  addLog(`ステータス確定！HP:${G.maxHP} ATK:${G.stats.atk} DEF:${G.stats.def}`,'good');
+  if(G.level>=365)addLog('🏆 クリア！1年間生き延びた！','good');
+  updateUI();
+}
+
+// ============================================================
+// SHOP LOGIC
+// ============================================================
+let currentShopType='item';
+function openShop(type){
+  currentShopType=type;
+  G.shopOpen=true;
+  G.isPaused=true;
+  document.getElementById('shopOverlay').classList.add('active');
+  renderShop();
+}
+function closeShop(){
+  G.shopOpen=false;
+  G.isPaused=false;
+  document.getElementById('shopOverlay').classList.remove('active');
+  if(isAdj(G.pos,VP.itemShop)) G.boughtFood=true;
+  if(isAdj(G.pos,VP.weapon))   G.visitedWeapon=true;
+  decideMorningRoute();
+  updateUI();
+}
+function renderShop(){
+  const title=currentShopType==='item'?'🛒 アイテム屋':'⚔ 武器屋';
+  document.getElementById('shopTitle').textContent=title;
+  document.getElementById('shopGoldVal').textContent=G.gold;
+  const items=document.getElementById('shopItems');
+  items.innerHTML='';
+  const sell=document.getElementById('shopSell');
+  sell.innerHTML='';
+
+  if(currentShopType==='item'){
+    // Buy
+    for(const[name,d]of Object.entries(CONSUMABLES)){
+      if(d.price===0)continue;
+      const row=document.createElement('div');row.className='shop-item';
+      const canBuy=G.gold>=d.price&&G.inventory.length<20;
+      row.innerHTML=`<div><div class="shop-item-name">${name}</div><div class="shop-item-desc">${d.desc}</div></div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="shop-item-price">${d.price}G</span>
+          <button class="shop-btn" ${canBuy?'':'disabled'} onclick="buyItem('${name}',${d.price})">購入</button></div>`;
+      items.appendChild(row);
+    }
+    // Sell
+    for(const[name,d]of Object.entries(SELL_ITEMS)){
+      if(!G.inventory.includes(name))continue;
+      const cnt=G.inventory.filter(i=>i===name).length;
+      const row=document.createElement('div');row.className='shop-item';
+      row.innerHTML=`<div class="shop-item-name">${name}×${cnt}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="shop-item-price">${d.sell}G</span>
+          <button class="shop-btn" onclick="sellItem('${name}',${d.sell})">売却</button></div>`;
+      sell.appendChild(row);
+    }
+  } else {
+    // Weapon shop – buy
+    for(const[name,d]of Object.entries({...WEAPONS,...ARMORS,...SHIELDS})){
+      const owned=G.equipment.weapon===name||G.equipment.armor===name||G.equipment.shield===name||G.inventory.includes(name);
+      const canBuy=G.gold>=d.price&&G.inventory.length<20&&!owned;
+      const row=document.createElement('div');row.className='shop-item';
+      row.innerHTML=`<div><div class="shop-item-name">${name}${owned?' ✓':''}</div>
+        <div class="shop-item-desc">${d.desc}</div></div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="shop-item-price">${d.price}G</span>
+          <button class="shop-btn" ${canBuy?'':'disabled'} onclick="buyItem('${name}',${d.price})">購入</button></div>`;
+      items.appendChild(row);
+    }
+    // Sell equipped / inventory gear
+    const gearInInv=G.inventory.filter(i=>WEAPONS[i]||ARMORS[i]||SHIELDS[i]);
+    for(const name of gearInInv){
+      const d=WEAPONS[name]||ARMORS[name]||SHIELDS[name];
+      const row=document.createElement('div');row.className='shop-item';
+      row.innerHTML=`<div class="shop-item-name">${name}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="shop-item-price">${d.sell}G</span>
+          <button class="shop-btn" onclick="sellGear('${name}',${d.sell})">売却</button></div>`;
+      sell.appendChild(row);
+    }
+  }
+}
+function buyItem(name,price){
+  if(G.gold<price||G.inventory.length>=20)return;
+  G.gold-=price;G.inventory.push(name);
+  addLog(`${name}を購入（${price}G）`,'good');
+  renderShop();updateUI();
+}
+function sellItem(name,price){
+  const idx=G.inventory.indexOf(name);if(idx<0)return;
+  G.inventory.splice(idx,1);G.gold+=price;
+  addLog(`${name}を売却（${price}G）`,'good');
+  renderShop();updateUI();
+}
+function sellGear(name,price){
+  const idx=G.inventory.indexOf(name);if(idx<0)return;
+  G.inventory.splice(idx,1);G.gold+=price;
+  addLog(`${name}を売却（${price}G）`,'good');
+  renderShop();updateUI();
+}
+// 装備変更：仕様に従いスロット制約チェック
+// 右手：片手武器 / 左手：シールド or 片手武器 / 両手武器：右手のみ（左手空き）
+// 体：防具のみ
+function equipItem(name, slot){
+  const def=getItemDef(name); if(!def) return;
+  const itemSlot=def.slot;
+
+  if(slot==='right'){
+    if(itemSlot==='twohand'){
+      // 両手武器：右手に装備、左手を強制的に外す
+      if(G.equipment.right) G.inventory.push(G.equipment.right);
+      if(G.equipment.left)  G.inventory.push(G.equipment.left);
+      const idx=G.inventory.indexOf(name);if(idx>=0)G.inventory.splice(idx,1);
+      G.equipment.right=name; G.equipBless.right=G.equipBless.right||0;
+      G.equipment.left=null;  G.equipBless.left=0;
+      addLog(`${name}（両手）を装備。左手を外した`,'good');
+    } else if(itemSlot==='onehand'){
+      if(G.equipment.right) G.inventory.push(G.equipment.right);
+      const idx=G.inventory.indexOf(name);if(idx>=0)G.inventory.splice(idx,1);
+      G.equipment.right=name; G.equipBless.right=G.equipBless.right||0;
+      addLog(`${name}を右手に装備した`,'good');
+    }
+  } else if(slot==='left'){
+    // 左手：片手武器 or シールドのみ。両手武器装備中は装備不可
+    const rDef=G.equipment.right?getItemDef(G.equipment.right):null;
+    if(rDef&&rDef.slot==='twohand'){addLog('両手武器装備中は左手に装備できない','warn');return;}
+    if(itemSlot!=='onehand'&&itemSlot!=='shield'){addLog(`${name}は左手に装備できない`,'warn');return;}
+    if(G.equipment.left) G.inventory.push(G.equipment.left);
+    const idx=G.inventory.indexOf(name);if(idx>=0)G.inventory.splice(idx,1);
+    G.equipment.left=name; G.equipBless.left=G.equipBless.left||0;
+    addLog(`${name}を左手に装備した`,'good');
+  } else if(slot==='armor'){
+    if(itemSlot!=='armor'){addLog(`${name}は防具スロットに装備できない`,'warn');return;}
+    if(G.equipment.armor) G.inventory.push(G.equipment.armor);
+    const idx=G.inventory.indexOf(name);if(idx>=0)G.inventory.splice(idx,1);
+    G.equipment.armor=name; G.equipBless.armor=G.equipBless.armor||0;
+    addLog(`${name}を体に装備した`,'good');
+  }
+}
+
+// 装備を外す
+function unequipSlot(slot){
+  if(!G.equipment[slot]) return;
+  if(G.inventory.length>=20){addLog('インベントリが満杯で外せない','warn');return;}
+  G.inventory.push(G.equipment[slot]);
+  addLog(`${G.equipment[slot]}を外した`,'');
+  G.equipment[slot]=null; G.equipBless[slot]=0;
+}
+
+// AI auto-buy equipment
+// aiTryBuyGear は廃止（ユーザーがショップ画面で直接購入）
+function aiTryBuyGear(){ /* no-op: user selects in shop */ }
+
+// ============================================================
+// COMBAT SYSTEM
+// ============================================================
+// 戦闘中のコールバック（魔法確認から戦闘開始へ渡す）
+let _combatEnemy=null,_combatOnWin=null,_combatOnLose=null,_combatEnemyName='';
+
+function useMagicInCombat(){
+  const dmg=Math.max(1,Math.floor(Math.random()*G.stats.int*G.level*10)+1);
+  G.mp=Math.max(0,G.mp-10);
+  const panel=document.getElementById('cbMagicPanel');
+  panel.classList.remove('active');
+  const clog=document.getElementById('combatLog');
+  const el=document.createElement('div');
+  el.className='cl-hit';el.style.color='#c8a8ff';
+  el.textContent=`🔥 ファイヤー！${_combatEnemy.hp}HP → `;
+  _combatEnemy.hp=Math.max(0,_combatEnemy.hp-dmg);
+  el.textContent+=`${_combatEnemy.hp}HP（${dmg}ダメージ）`;
+  clog.appendChild(el);clog.scrollTop=clog.scrollHeight;
+  addLog(`魔法ファイヤー！${dmg}ダメージ（MP残${G.mp}）`,'good');
+  updateUI();
+  setTimeout(()=>_startCombatLoop(),400);
+}
+function skipMagicInCombat(){
+  document.getElementById('cbMagicPanel').classList.remove('active');
+  setTimeout(()=>_startCombatLoop(),200);
+}
+
+function runCombat(enemyName, onWin, onLose){
+  const base=MONSTERS[enemyName];
+  if(!base){onWin&&onWin();return;}
+  const enemy={...base,hp:base.maxHp};
+  _combatEnemy=enemy;_combatOnWin=onWin;_combatOnLose=onLose;_combatEnemyName=enemyName;
+  const pAtk=effAtk(),pDef=effDef(),pAgi=effAgi();
+
+  document.getElementById('combatOverlay').classList.add('active');
+  document.getElementById('cbPlayerName').textContent=G.name;
+  document.getElementById('cbEnemyName').textContent=enemyName;
+  document.getElementById('cbPlayerAtk').textContent=`ATK:${pAtk} DEF:${pDef} AGI:${pAgi} MP:${G.mp}`;
+  document.getElementById('cbEnemyStats').textContent=`ATK:${enemy.atk} DEF:${enemy.def} AGI:${enemy.agi}`;
+  const clog=document.getElementById('combatLog');
+  clog.innerHTML='';
+  document.getElementById('cbStatus').textContent='戦闘開始！';
+  // HPバーを戦闘開始時点の値で即座に初期化（前回戦闘の残骸を消す）
+  document.getElementById('cbPlayerHp').style.width='100%';
+  document.getElementById('cbPlayerHp').className='cb-hp-fill';
+  document.getElementById('cbPlayerHpText').textContent=`HP:${G.hp}/${G.maxHP}`;
+  document.getElementById('cbEnemyHp').style.width='100%';
+  document.getElementById('cbEnemyHp').className='cb-hp-fill';
+  document.getElementById('cbEnemyHpText').textContent=`HP:${enemy.hp}/${enemy.maxHp}`;
+
+  // MPがあれば魔法確認パネルを表示
+  if(G.mp>=10){
+    const panel=document.getElementById('cbMagicPanel');
+    panel.classList.add('active');
+    document.getElementById('cbMagicInfo').textContent=
+      `MP:${G.mp}/${G.maxMp}　予想ダメージ: 1〜${G.stats.int*G.level*10}`;
+  } else {
+    setTimeout(()=>_startCombatLoop(),300);
+  }
+}
+
+function _startCombatLoop(){
+  const enemy=_combatEnemy;
+  const onWin=_combatOnWin,onLose=_combatOnLose;
+  const enemyName=_combatEnemyName;
+  const base=MONSTERS[enemyName]||{};
+
+  const pAtk=effAtk(),pDef=effDef(),pAgi=effAgi();
+  const clog=document.getElementById('combatLog');
+
+  let pHp=G.hp,pCounter=0,eCounter=0,turn=0;
+  const pMaxHp=G.maxHP,eMaxHp=enemy.maxHp;
+  let hasBow=hasBowEquipped();
+
+  function updateCombatUI(){
+    const pPct=Math.max(0,pHp/pMaxHp*100);
+    const ePct=Math.max(0,enemy.hp/eMaxHp*100);
+    const pbf=document.getElementById('cbPlayerHp');
+    pbf.style.width=pPct+'%';
+    pbf.className='cb-hp-fill'+(pPct<30?' crit':pPct<60?' low':'');
+    document.getElementById('cbPlayerHpText').textContent=`HP:${Math.max(0,pHp)}/${pMaxHp}`;
+    const ebf=document.getElementById('cbEnemyHp');
+    ebf.style.width=ePct+'%';
+    ebf.className='cb-hp-fill'+(ePct<30?' crit':ePct<60?' low':'');
+    document.getElementById('cbEnemyHpText').textContent=`HP:${Math.max(0,enemy.hp)}/${eMaxHp}`;
+  }
+
+  function clogAdd(msg,cls=''){
+    const el=document.createElement('div');
+    el.className='cl-'+cls;el.textContent=msg;
+    clog.appendChild(el);clog.scrollTop=clog.scrollHeight;
+  }
+
+  function combatStep(){
+    // HP30%以下になったら逃走（討伐依頼中は逃走=失敗）
+    if(pHp <= pMaxHp*0.3 && pHp > 0 && enemy.hp > 0){
+      document.getElementById('combatOverlay').classList.remove('active');
+      G.hp=Math.max(1,pHp);
+      addLog(`HP30%以下！${enemyName}から逃走した`,'warn');
+      onLose&&onLose(); // 逃走は討伐失敗
+      return;
+    }
+    if(pHp<=0||enemy.hp<=0||turn>=20){
+      document.getElementById('combatOverlay').classList.remove('active');
+      if(enemy.hp<=0){
+        // 討伐成功
+        G.hp=Math.max(1,pHp);
+        G.monstersKilled++;
+        // 討伐の証をインベントリへ（依頼・ランダム共通）
+        if(base.proof&&G.inventory.length<20)G.inventory.push(base.proof);
+        addLog(`${enemyName}を倒した！討伐の証を入手`,'good');
+        onWin&&onWin();
+      } else if(pHp<=0){
+        // 全滅
+        G.hp=1;
+        addLog(`${enemyName}に敗北…教会に逃げ込んだ`,'bad');
+        churchHeal();
+        onLose&&onLose();
+      } else {
+        // 10ターン超過→強制逃走（討伐失敗）
+        G.hp=Math.max(1,pHp);
+        addLog(`決着がつかず${enemyName}から逃走した`,'warn');
+        onLose&&onLose();
+      }
+      return;
+    }
+    turn++;
+    // ロングボウ先制：最初の2ターンは必ず先攻
+    if(hasBow&&turn<=2){
+      playerAttack();
+      if(enemy.hp<=0){combatStep();return;}
+      setTimeout(combatStep,350);return;
+    }
+    pCounter+=pAgi;eCounter+=enemy.agi;
+    if(pCounter>=10&&eCounter>=10){
+      if(pAgi>=enemy.agi)playerAttack();else enemyAttack();
+    } else if(pCounter>=10){
+      playerAttack();pCounter=0;
+    } else if(eCounter>=10){
+      enemyAttack();eCounter=0;
+    }
+    updateCombatUI();
+    if(pHp>0&&enemy.hp>0)setTimeout(combatStep,400);
+    else setTimeout(combatStep,100);
+  }
+
+  function playerAttack(){
+    if(blockChance()>0&&Math.random()<blockChance()){clogAdd(`${G.name}のブロック！ダメージ無効`,'miss');return;}
+    // ダメージ = ランダム((攻撃力-防御力)×10)、最小1
+    const pRange=Math.max(1,(pAtk-enemy.def)*10);
+    let dmg=Math.max(1, Math.floor(Math.random()*pRange)+1);
+    enemy.hp-=dmg;pCounter=0;
+    clogAdd(`${G.name}の攻撃！ ${dmg}ダメージ (敵HP:${Math.max(0,enemy.hp)})`,'hit');
+    updateCombatUI();
+  }
+  function enemyAttack(){
+    if(blockChance()>0&&Math.random()<blockChance()){clogAdd(`${G.name}はブロックした！ダメージ無効`,'miss');return;}
+    // ダメージ = ランダム((攻撃力-防御力)×10)、最小1
+    const eRange=Math.max(1,(enemy.atk-effDef())*10);
+    let dmg=Math.max(1, Math.floor(Math.random()*eRange)+1);
+    pHp-=dmg;eCounter=0;
+    clogAdd(`${enemyName}の攻撃！ ${dmg}ダメージ (自HP:${Math.max(0,pHp)})`,'hit');
+    updateCombatUI();
+  }
+
+  document.getElementById('cbStatus').textContent='戦闘中…';
+  clogAdd(`${enemyName}が現れた！`,'');
+  updateCombatUI();
+  setTimeout(combatStep,600);
+}
+
+// ============================================================
+// AI STATE MACHINE
+// ============================================================
+const THOUGHTS_MAP={
+  hp:['「筋肉があれば何とかなる！」','「HP重視！」','「もっと強くなれる！」'],
+  atk:['「モンスタを倒せ！」','「強敵ほど燃える！」','「前へ！」'],
+  def:['「敵が強そうだから逃げよう…」','「慎重に行こう」','「無茶はしない」'],
+  int:['「天気も良いし本でも読むかな」','「知識は力」','「静かが好き」'],
+  agi:['「キラキラ光るものを見つけた」','「何かいいもの…」','「素早さが命！」'],
+};
+function getThought(){const p=THOUGHTS_MAP[G.personalityKey]||THOUGHTS_MAP.hp;return p[Math.floor(Math.random()*p.length)];}
+
+function aiTick(){
+  if(G.isPaused||G.isSleeping)return;
+
+  // Emergency food
+  if(G.food<=0){addLog('餓死…ゲームオーバー','bad');G.isPaused=true;return;}
+  if(G.food<40&&G.aiState!=='EAT'&&G.aiState!=='GOTO_FOOD'&&G.aiState!=='SLEEP'&&G.aiState!=='COMBAT'){
+    if(eatFood()){setAction('緊急：食料を食べた');}
+    else if(G.inVillage){G.emergencyEat=true;G.aiState='GOTO_FOOD';G.path=[];setVPath(VP.food);}
+  }
+  // Emergency HP
+  if(G.hp<G.maxHP*0.3&&G.aiState!=='SLEEP'&&G.aiState!=='COMBAT'){
+    if(useMed()){setAction('ピンチ！薬を使った');}
+  }
+  // 睡眠不足：全ステータスを半減（寝たら回復）
+  if(G.sleep<=0&&!G.sleepDebuff){
+    G.sleepDebuff=true;
+    const keys=['hp','atk','def','int','agi'];
+    for(const k of keys) G.stats[k]=Math.max(1,Math.floor(G.stats[k]/2));
+    G.maxHP=G.stats.hp*10;
+    G.hp=Math.min(G.hp,G.maxHP);
+    G.sleep=10; // 連続発動防止
+    addLog('睡眠不足！全ステータスが半減した','bad');
+    G.aiState='GOTO_HOME_FROM_OUT';G.path=[];
+  }
+
+  // 夜18時になった瞬間だけ1回だけ帰宅トリガー
+  const nowNight = !isDay();
+  if(nowNight && !G._wasNight && G.inVillage){
+    G._wasNight = true;
+    const safeStates=['GOTO_HOME','SLEEP','GOTO_FOOD','EAT','COMBAT',
+      'RETURN_GUILD','RETURN_VILLAGE','GOTO_HOME_FROM_OUT'];
+    if(!safeStates.includes(G.aiState)){
+      if(!G.eatenDinner){
+        addLog('夜になった。夕食をとりに行く','');
+        G.aiState='GOTO_FOOD';G.path=[];setVPath(VP.food);
+      } else {
+        addLog('夜になった。帰宅する','');
+        G.aiState='GOTO_HOME';G.path=[];setVPath(VP.home);
+      }
+    }
+  }
+  if(!nowNight) G._wasNight = false;
+
+  switch(G.aiState){
+    case 'WAKEUP':       tickWakeup();break;
+    case 'GOTO_FOOD':    tickGotoFood();break;
+    case 'EAT':          tickEat();break;
+    case 'BUY_FOOD':     tickBuyFood();break;
+    case 'GOTO_WEAPON':  tickGotoWeapon();break;
+    case 'GOTO_CHURCH':  tickGotoChurch();break;
+    case 'GOTO_GUILD':   tickGotoGuild();break;
+    case 'AT_GUILD':     tickAtGuild();break;
+    case 'DO_QUEST':     tickDoQuest();break;
+    case 'RETURN_GUILD': tickReturnGuild();break;
+    case 'GOTO_HOME':    tickGotoHome();break;
+    case 'SLEEP':        tickSleep();break;
+    case 'SEARCH':       tickSearch();break;
+    // Outer world
+    case 'GOTO_GATE':    tickGotoGate();break;
+    case 'EXIT_VILLAGE': tickExitVillage();break;
+    case 'OUTER_QUEST':  tickOuterQuest();break;
+    case 'RETURN_VILLAGE':tickReturnVillage();break;
+    case 'GOTO_HOME_FROM_OUT':tickGotoHomeFromOut();break;
+    default: G.aiState='WAKEUP';
+  }
+  updateUI();
+}
+
+function tickWakeup(){
+  setThought(getThought());setAction('朝、目が覚めた。食堂へ向かう');
+  G.aiState='GOTO_FOOD';setVPath(VP.food);
+}
+
+// 朝食後の行き先：ユーザーの選択に従う
+function decideMorningRoute(){
+  if(G.morningGoItem&&!G.boughtFood){
+    G.aiState='BUY_FOOD';setVPath(VP.itemShop);
+  } else if(G.morningGoWeapon&&!G.visitedWeapon){
+    G.aiState='GOTO_WEAPON';setVPath(VP.weapon);
+  } else if(G.hp<G.maxHP){
+    G.aiState='GOTO_CHURCH';setVPath(VP.church);
+  } else {
+    G.aiState='GOTO_GUILD';setVPath(VP.guild);
+  }
+}
+function tickGotoFood(){
+  setAction('食堂へ移動中…');
+  if(isAdj(G.pos,VP.food)){G.aiState='EAT';}
+  else{if(!G.path.length)setVPath(VP.food);stepPath();}
+}
+function tickEat(){
+  // 緊急補給（食料割り込み）の場合はフラグを消して元の流れに戻る
+  if(G.emergencyEat){
+    G.emergencyEat=false;
+    if(G.gold>=10){G.gold-=10;G.food=100;addLog('緊急：食堂で食事（10G）','warn');}
+    else if(!eatFood()){addLog('お金も食料もない！','bad');}
+    // 元の状態に戻す（時刻で判断）
+    if(!isDay()||G.hour>=17){
+      if(!G.eatenDinner){G.eatenDinner=true;G.aiState='GOTO_HOME';G.path=[];setVPath(VP.home);}
+      else{G.aiState='GOTO_HOME';G.path=[];setVPath(VP.home);}
+    } else {
+      G.aiState=G.currentQuest?'DO_QUEST':'GOTO_GUILD';
+      if(G.currentQuest)setVPath(VP[G.currentQuest.target]||VP.guild);
+      else setVPath(VP.guild);
+    }
+    return;
+  }
+
+  // 通常の食事：時刻で朝食・昼食・夕食を判断
+  if(G.gold>=10){G.gold-=10;G.food=100;G.mealCount++;addLog(`食堂で食事（10G）G:${G.gold}`,'good');}
+  else if(!eatFood()){addLog('お金も食料もない！','bad');}
+
+  // 時刻ベースで次の行動を決定（フラグの誤判定を防ぐ）
+  if(!G.eatenBreakfast){
+    G.eatenBreakfast=true;
+    decideMorningRoute(); // ゴールドで毎朝行き先を決める
+  } else if(!G.eatenLunch && G.hour>=11){
+    // 11時以降に来たら昼食扱い
+    G.eatenLunch=true;
+    G.aiState=G.currentQuest?'DO_QUEST':'GOTO_GUILD';
+    if(G.currentQuest)setVPath(VP[G.currentQuest.target]||VP.guild);
+    else setVPath(VP.guild);
+  } else if(G.hour>=17||!isDay()){
+    // 17時以降 or 夜なら夕食扱い
+    G.eatenDinner=true;
+    G.aiState='GOTO_HOME';
+    G.path=[];setVPath(VP.home);
+    addLog('夕食を食べた。家に帰ろう','');
+  } else {
+    // それ以外（朝食済み・昼前）→ 買い物か直接ギルド
+    decideMorningRoute();
+  }
+}
+function tickBuyFood(){
+  setAction('アイテム屋へ移動中…');
+  if(isAdj(G.pos,VP.itemShop)){
+    // アイテム屋に着いたらユーザーにも画面を開いて選ばせる
+    openShop('item');
+    // G≥100のときだけ買い物（食料・薬）
+    if(G.gold>=100){
+      const needed=3-G.inventory.filter(i=>i==='食料').length;
+      let bought=0;
+      for(let i=0;i<needed&&G.gold>=10&&G.inventory.length<20;i++){G.gold-=10;G.inventory.push('食料');bought++;}
+      if(bought)addLog(`食料×${bought}購入`,'good');
+      if(G.gold>=100&&!G.inventory.includes('薬')&&G.inventory.length<20){
+        G.gold-=100;G.inventory.push('薬');addLog('薬を1個購入','good');
+      }
+    }
+    G.boughtFood=true;
+    decideMorningRoute(); // 次の行き先を再判定（武器屋・教会・ギルド）
+  } else {if(!G.path.length)setVPath(VP.itemShop);stepPath();}
+}
+function tickGotoWeapon(){
+  setAction('武器屋へ移動中…');
+  if(isAdj(G.pos,VP.weapon)){
+    G.visitedWeapon=true;
+    openShop('weapon'); // ユーザーに選ばせる
+  } else {if(!G.path.length)setVPath(VP.weapon);stepPath();}
+}
+
+function tickGotoChurch(){
+  setAction('教会へ移動中…');
+  if(isAdj(G.pos,VP.church)){
+    churchHeal();
+    G.aiState='GOTO_GUILD';setVPath(VP.guild);
+  } else {if(!G.path.length)setVPath(VP.church);stepPath();}
+}
+
+// 教会回復処理：費用 = ダメージHP×5、足りなければ払えるだけ
+function churchHeal(){
+  const dmg = G.maxHP - G.hp;
+  if(dmg <= 0){addLog('教会：HPは満タンだ','');return;}
+  const fullCost = dmg * 5;
+  if(G.gold <= 0){addLog('教会：お金がないので回復できなかった','warn');return;}
+  if(G.gold >= fullCost){
+    // 全回復
+    G.gold -= fullCost;
+    G.hp = G.maxHP;
+    addLog(`教会で全回復！（${fullCost}G）HP:${G.hp}/${G.maxHP}`,'good');
+  } else {
+    // 払えるだけ回復（1Gあたり0.2HP回復）
+    const healHP = Math.floor(G.gold / 5);
+    G.hp = Math.min(G.maxHP, G.hp + healHP);
+    addLog(`教会：${G.gold}Gで${healHP}HP回復 HP:${G.hp}/${G.maxHP}`,'good');
+    G.gold = 0;
+  }
+}
+function tickGotoGuild(){
+  setAction('冒険者ギルドへ移動中…');
+  if(isAdj(G.pos,VP.guild)){G.aiState='AT_GUILD';}
+  else{if(!G.path.length)setVPath(VP.guild);stepPath();}
+}
+function tickAtGuild(){
+  // Claim pending reward
+  redeemAllProofs(); // 討伐の証を全て換金
+  if(G.currentQuest&&G.questDone&&!G.guildRewarded){
+    claimQuestReward();
+  }
+  // 夜・夕方は帰宅する
+  if(G.hour>=17||!isDay()){
+    if(!G.eatenDinner){G.aiState='GOTO_FOOD';setVPath(VP.food);}
+    else{G.aiState='GOTO_HOME';setVPath(VP.home);}
+    return;
+  }
+  // Pick quest
+  const q=pickQuest();
+  G.currentQuest=q;G.guildRewarded=false;G.questDone=false;
+  addLog(`依頼受注：「${q.name}」報酬${q.gold}G`,'hi');setAction(`依頼：「${q.name}」へ`);
+
+  if(q.outer){
+    G.aiState='GOTO_GATE';setVPath(VP.gate);
+  } else {
+    G.aiState='DO_QUEST';setVPath(VP[q.target]||VP.home);
+  }
+}
+function pickQuest(){
+  const pk=G.personalityKey;
+  const preferCombat=['hp','atk'].includes(pk);
+  const preferGather=['def','int','agi'].includes(pk);
+  // Gate quest
+  if(!G.gateSeen&&G.level>=2)return {...QUEST_GATE};
+  // Outer quests if lv>=2 and gate seen
+  if(G.gateSeen&&G.level>=2){
+    const eligible=OUTER_QUESTS.filter(q=>q.lv<=G.level);
+    if(eligible.length>0){
+      // personality filter
+      let pool=eligible.filter(q=>preferCombat?q.type==='combat':q.type==='gather');
+      if(pool.length===0)pool=eligible;
+      const q={...pool[Math.floor(Math.random()*pool.length)],outer:true};
+      return q;
+    }
+  }
+  // Village quests
+  let pool=QUESTS_LV1.filter(q=>{
+    if(q.type==='combat')return preferCombat||Math.random()<0.35;
+    return preferGather||Math.random()<0.5;
+  });
+  if(!pool.length)pool=QUESTS_LV1;
+  return {...pool[Math.floor(Math.random()*pool.length)]};
+}
+function tickDoQuest(){
+  if(!G.currentQuest){G.aiState='GOTO_GUILD';return;}
+  const q=G.currentQuest;
+  const tpos=VP[q.target]||VP.home;
+  setAction(`依頼「${q.name}」実行中`);
+  // 依頼中でも夜18時になったら帰宅（仕様：依頼中は帰宅欲求を無視するが夕食後は帰る）
+  if(!isDay()&&G.inVillage&&G.eatenDinner){
+    G.aiState='GOTO_HOME';setVPath(VP.home);return;
+  }
+  if(isAdj(G.pos,tpos)){
+    // Complete
+    if(q.id==='gate'){G.gateSeen=true;addLog('門の外を確認した！これで外に出られる','good');}
+    if(q.type==='combat'){
+      // Village slime combat
+      G.isPaused=true;
+      runCombat('スライム',()=>{
+        G.questDone=true;G.isPaused=false;
+        G.aiState='RETURN_GUILD';setVPath(VP.guild);
+      },()=>{
+        G.questDone=false;G.currentQuest=null;G.isPaused=false;
+        G.aiState='GOTO_HOME';setVPath(VP.home);
+      });
+      return;
+    }
+    advanceTime(q.hours*60);
+    G.questDone=true;G.aiState='RETURN_GUILD';
+    if(G.hour>=12&&!G.eatenLunch){G.aiState='GOTO_FOOD';setVPath(VP.food);}
+    else{setVPath(VP.guild);}
+  } else {
+    if(!G.path.length)setVPath(tpos);stepPath();
+    if(isDay()&&Math.random()<searchRate()&&G.searchToday<3){G.gold+=10;G.searchToday++;addLog('探索：10G発見','good');}
+  }
+}
+function tickReturnGuild(){
+  setAction('ギルドへ戻る…');
+  if(isAdj(G.pos,VP.guild)){
+    redeemAllProofs(); // 討伐の証を全て換金
+    if(G.currentQuest&&G.questDone&&!G.guildRewarded){
+      claimQuestReward();
+    }
+    G.currentQuest=null;G.questDone=false;
+    if(G.hour>=17||!isDay()){
+      if(!G.eatenDinner){G.aiState='GOTO_FOOD';setVPath(VP.food);}
+      else{G.aiState='GOTO_HOME';setVPath(VP.home);}
+    } else {G.aiState='AT_GUILD';}
+  } else {if(!G.path.length)setVPath(VP.guild);stepPath();}
+}
+function tickGotoHome(){
+  setAction('自宅へ帰る…');
+  if(isAdj(G.pos,VP.home)){doSleep();}
+  else{if(!G.path.length)setVPath(VP.home);stepPath();}
+}
+function tickSleep(){ /* overlay handles */ }
+function tickSearch(){
+  advanceTime(60);G.searchToday++;
+  if(Math.random()<searchRate()){G.gold+=10;addLog('探索成功！10G発見','good');}
+  else addLog('探索：何も見つからなかった','');
+  G.aiState='GOTO_GUILD';setVPath(VP.guild);
+}
+
+// OUTER WORLD
+function tickGotoGate(){
+  setAction('門へ移動中…');
+  if(isAdj(G.pos,VP.gate)||isAdj(G.pos,VP.gateExit)){
+    // Transition to outer
+    G.inVillage=false;
+    G.outerPos={...O_VILLAGE};
+    G.path=[];
+    addLog('村を出た。外界へ！','hi');
+    setAction('外界へ出発！');
+    G.aiState='OUTER_QUEST';
+    // Set outer quest target
+    if(G.currentQuest){
+      G.outerTarget=pickOuterTarget(G.currentQuest);
+      setOPath(G.outerTarget);
+    }
+  } else {if(!G.path.length)setVPath(VP.gateExit);stepPath();}
+}
+function pickOuterTarget(q){
+  // Random walkable cell on outer map matching quest type
+  const zoneMap={
+    'herb':'林','wood':'森','wood2':'森','wood3':'山','hherb':'湿','hwood':'山',
+    'slime2':'◆','bee':'＋','snake':'湿','goblin':'林','wolf':'森','golem':'山'
+  };
+  const zone=zoneMap[q.id]||'◆';
+  const candidates=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    if(OMAP[r][c]===zone&&isOWalk(r,c,G.level))candidates.push({r,c});
+  if(!candidates.length)return{r:9,c:8};
+  return candidates[Math.floor(Math.random()*candidates.length)];
+}
+function tickOuterQuest(){
+  if(!G.currentQuest){G.aiState='RETURN_VILLAGE';setOPath(O_VILLAGE);return;}
+  const q=G.currentQuest;
+  setAction(`外界で「${q.name}」中`);
+  // Encounter check
+  const terrain=OMAP[G.outerPos.r]?.[G.outerPos.c];
+  const encRate=isDay()?0.1:0.3;
+  if(Math.random()<encRate&&ZONE_MONSTER[terrain]){
+    const ename=ZONE_MONSTER[terrain];
+    const mon=MONSTERS[ename];
+    if(mon&&mon.lv<=G.level+1){
+      // HP30%以下なら必ず逃げる。それ以上なら性格で判断
+      const hpLow = G.hp < G.maxHP*0.3;
+      const willFight = !hpLow && (['hp','atk'].includes(G.personalityKey) || G.hp > G.maxHP*0.5);
+      if(!willFight){addLog(`${ename}を見つけたが逃げた`,'warn');}
+      else {
+        G.isPaused=true;
+        runCombat(ename,()=>{
+          // 討伐の証はrunCombat内でインベントリに入る→ギルドで換金
+          G.isPaused=false;
+        },()=>{
+          // lose – retreat to village
+          G.isPaused=false;G.inVillage=true;G.pos={...VP.church};
+          G.currentQuest=null;G.aiState='GOTO_HOME';setVPath(VP.home);
+          addLog('外界で敗北…村の教会に逃げ込んだ','bad');
+          churchHeal();
+        });
+        return;
+      }
+    }
+  }
+
+  if(G.outerTarget&&isAdj(G.outerPos,G.outerTarget)){
+    // Arrived at target
+    if(q.type==='gather'&&q.item){
+      if(G.inventory.length<20){G.inventory.push(q.item);addLog(`${q.item}を採取した！`,'good');}
+      advanceTime(q.hours*60);
+    } else if(q.type==='combat'&&q.enemy){
+      G.isPaused=true;
+      runCombat(q.enemy,()=>{
+        // 討伐成功
+        G.questDone=true;G.isPaused=false;
+        G.aiState='RETURN_VILLAGE';setOPath(O_VILLAGE);
+      },()=>{
+        // 逃走または敗北 → 討伐失敗（報酬なし）
+        G.questDone=false;G.currentQuest=null;G.isPaused=false;
+        G.inVillage=true;G.pos={...VP.church};
+        G.aiState='GOTO_HOME';setVPath(VP.home);
+        addLog('討伐失敗。教会に逃げ込んだ','bad');
+        churchHeal();
+      });
+      return;
+    }
+    G.questDone=true;
+    // Return to village
+    if(G.food<40||(G.hp<G.maxHP*0.5&&!G.inventory.includes('薬'))){
+      addLog('状態が悪い。村へ戻る','warn');
+    }
+    G.aiState='RETURN_VILLAGE';setOPath(O_VILLAGE);
+  } else {
+    if(!G.path.length&&G.outerTarget)setOPath(G.outerTarget);
+    stepPath();
+    // Gather during travel
+    if(q.type==='gather'&&Math.random()<0.15){
+      // small chance to find item en route
+    }
+    // Time pressure: if late return early
+    if((G.hour>=16||G.food<50)&&G.path.length>5){
+      addLog('時間が遅い。村へ引き返す','warn');
+      G.aiState='RETURN_VILLAGE';setOPath(O_VILLAGE);
+    }
+  }
+}
+function tickReturnVillage(){
+  setAction('村へ戻る…');
+  if(isAdj(G.outerPos,O_VILLAGE)||OMAP[G.outerPos.r]?.[G.outerPos.c]==='村'){
+    G.inVillage=true;G.pos={...VP.gateExit};G.path=[];
+    addLog('村に帰還した！','hi');
+    G.aiState='RETURN_GUILD';setVPath(VP.guild);
+  } else {if(!G.path.length)setOPath(O_VILLAGE);stepPath();}
+}
+function tickGotoHomeFromOut(){
+  if(G.inVillage){G.aiState='GOTO_HOME';setVPath(VP.home);}
+  else{G.aiState='RETURN_VILLAGE';setOPath(O_VILLAGE);}
+}
+
+function doSleep(){
+  G.isSleeping=true;G.aiState='SLEEP';
+  saveGame(); // オートセーブ（G.autoSaveがtrueの場合のみ保存）
+  document.getElementById('sleepOverlay').classList.add('active');
+  document.getElementById('sleepMsg').textContent=`${G.name}は眠りについた。翌朝まで休みます。`;
+  document.getElementById('sleepGP').textContent=G.godPoints;
+}
+function wakeUp(){
+  G.isSleeping=false;
+  document.getElementById('sleepOverlay').classList.remove('active');
+  // 睡眠不足デバフ解除
+  if(G.sleepDebuff){
+    G.sleepDebuff=false;
+    const keys=['hp','atk','def','int','agi'];
+    for(const k of keys) G.stats[k]=G.baseStats[k];
+    G.maxHP=G.stats.hp*10;
+    addLog('ぐっすり眠れた！ステータスが回復した','good');
+  }
+  G.hp=G.maxHP;G.sleep=100;G.food=Math.min(100,G.food+20);
+  updateMaxMP();G.mp=G.maxMp; // 睡眠でMP全回復
+  G.hour=6;G.minute=0;
+  G._wasNight=false;
+  G.inVillage=true;G.pos={...VP.home};G.path=[];
+  G.currentQuest=null;G.guildRewarded=false;G.questDone=false;
+  G.godPoints=Math.min(10,G.godPoints+3);
+  addLog(`── ${G.day}日目の朝 ──`,'hi');
+  updateUI();
+  // 朝の計画オーバーレイを開く
+  openMorningOverlay();
+}
+
+// =====================================================
+// 朝の計画オーバーレイ
+// =====================================================
+let _moChoices={item:false,weapon:false};
+let _moDecided={item:false,weapon:false};
+
+function openMorningOverlay(){
+  _moChoices={item:false,weapon:false};
+  _moDecided={item:false,weapon:false};
+  G.isPaused=true;
+
+  document.getElementById('moDayInfo').textContent=`${G.day}日目の朝`;
+  // ステータス表示
+  const eq=G.equipment,bl=G.equipBless;
+  const wpnR=eq.right?(eq.right+(bl.right?` +${bl.right}`:'')):'なし';
+  const wpnL=eq.left ?(eq.left +(bl.left ?` +${bl.left} `:'')):'なし';
+  const arm =eq.armor?(eq.armor+(bl.armor?` +${bl.armor}`:'')):'なし';
+  document.getElementById('moStatus').innerHTML=`
+    <div class="mo-stat"><span class="mo-stat-label">HP</span><span class="mo-stat-val">${G.hp}/${G.maxHP}</span></div>
+    <div class="mo-stat"><span class="mo-stat-label">G</span><span class="mo-stat-val">${G.gold}G</span></div>
+    <div class="mo-stat"><span class="mo-stat-label">右手</span><span class="mo-stat-val">${wpnR}</span></div>
+    <div class="mo-stat"><span class="mo-stat-label">左手</span><span class="mo-stat-val">${wpnL}</span></div>
+    <div class="mo-stat"><span class="mo-stat-label">体</span><span class="mo-stat-val">${arm}</span></div>
+    <div class="mo-stat"><span class="mo-stat-label">食料</span><span class="mo-stat-val">${G.inventory.filter(i=>i==='食料').length}個</span></div>`;
+  // 参考価格を表示
+  document.getElementById('moItemPrice').textContent='食料10G/薬100G';
+  document.getElementById('moWeaponPrice').textContent='200G〜800G';
+  renderMorningEquip();
+  document.getElementById('moStartBtn').disabled=true;
+  // ボタンリセット
+  ['item','weapon'].forEach(k=>{
+    document.querySelectorAll(`[onclick="morningChoice('${k}',true)"]`).forEach(b=>b.style.background='var(--accent)');
+    document.querySelectorAll(`[onclick="morningChoice('${k}',false)"]`).forEach(b=>b.style.background='var(--border)');
+  });
+  document.getElementById('morningOverlay').classList.add('active');
+}
+
+function morningChoice(type, go){
+  _moChoices[type]=go;
+  _moDecided[type]=true;
+  // 選んだボタンをハイライト
+  const yesBtn=document.querySelector(`[onclick="morningChoice('${type}',true)"]`);
+  const noBtn =document.querySelector(`[onclick="morningChoice('${type}',false)"]`);
+  if(go){yesBtn.style.background='var(--accent3)';noBtn.style.background='var(--border)';}
+  else {yesBtn.style.background='var(--border)';noBtn.style.background='var(--accent2)';}
+  // 両方決めたら出発ボタンを有効化
+  if(_moDecided.item&&_moDecided.weapon){
+    document.getElementById('moStartBtn').disabled=false;
+  }
+}
+
+// 朝の装備変更UI
+function renderMorningEquip(){
+  const sec=document.getElementById('moEquipSection');
+  sec.innerHTML='';
+  const slots=[
+    {key:'right', label:'右手', accepts:['onehand','twohand']},
+    {key:'left',  label:'左手', accepts:['onehand','shield']},
+    {key:'armor', label:'体',   accepts:['armor']},
+  ];
+  const rDef=G.equipment.right?getItemDef(G.equipment.right):null;
+  const isTwoHand=rDef&&rDef.slot==='twohand';
+
+  for(const s of slots){
+    const row=document.createElement('div');
+    row.className='mo-equip-row';
+    const cur=G.equipment[s.key];
+    const bl=G.equipBless[s.key]||0;
+    const curLabel=cur?(cur+(bl?` +${bl}`:'')):'なし';
+
+    // 左手は両手武器装備中は locked
+    const locked=(s.key==='left'&&isTwoHand);
+
+    // 装備可能なアイテムをインベントリから抽出
+    const candidates=G.inventory.filter(name=>{
+      const d=getItemDef(name);
+      return d&&s.accepts.includes(d.slot);
+    });
+    // 重複除去
+    const unique=[...new Set(candidates)];
+
+    row.innerHTML=`<span class="mo-equip-slot">${s.label}</span>
+      <span class="mo-equip-current">${locked?'両手武器使用中':curLabel}</span>`;
+
+    if(!locked){
+      if(unique.length>0){
+        const sel=document.createElement('select');
+        sel.className='mo-equip-select';
+        sel.id=`moSel_${s.key}`;
+        const opt0=document.createElement('option');
+        opt0.value='';opt0.textContent='─変更なし─';sel.appendChild(opt0);
+        for(const name of unique){
+          const opt=document.createElement('option');
+          opt.value=name;opt.textContent=name;sel.appendChild(opt);
+        }
+        const equipBtn=document.createElement('button');
+        equipBtn.className='mo-equip-btn';
+        equipBtn.textContent='装備';
+        equipBtn.onclick=()=>{
+          const v=sel.value;
+          if(v){equipItem(v,s.key);renderMorningEquip();renderMoStatus();}
+        };
+        row.appendChild(sel);
+        row.appendChild(equipBtn);
+      }
+      if(cur){
+        const unBtn=document.createElement('button');
+        unBtn.className='mo-equip-unequip';
+        unBtn.textContent='外す';
+        unBtn.onclick=()=>{unequipSlot(s.key);renderMorningEquip();renderMoStatus();};
+        row.appendChild(unBtn);
+      }
+    }
+    sec.appendChild(row);
+  }
+}
+
+function renderMoStatus(){
+  const eq=G.equipment,bl=G.equipBless;
+  const wpnR=eq.right?(eq.right+(bl.right?` +${bl.right}`:'')):'なし';
+  const wpnL=eq.left ?(eq.left +(bl.left ?` +${bl.left} `:'')):'なし';
+  const arm =eq.armor?(eq.armor+(bl.armor?` +${bl.armor}`:'')):'なし';
+  document.getElementById('moStatus').innerHTML=`
+    <div class="mo-stat"><span class="mo-stat-label">HP</span><span class="mo-stat-val">${G.hp}/${G.maxHP}</span></div>
+    <div class="mo-stat"><span class="mo-stat-label">G</span><span class="mo-stat-val">${G.gold}G</span></div>
+    <div class="mo-stat"><span class="mo-stat-label">右手</span><span class="mo-stat-val">${wpnR}</span></div>
+    <div class="mo-stat"><span class="mo-stat-label">左手</span><span class="mo-stat-val">${wpnL}</span></div>
+    <div class="mo-stat"><span class="mo-stat-label">体</span><span class="mo-stat-val">${arm}</span></div>
+    <div class="mo-stat"><span class="mo-stat-label">食料</span><span class="mo-stat-val">${G.inventory.filter(i=>i==='食料').length}個</span></div>`;
+}
+
+function startDay(){
+  document.getElementById('morningOverlay').classList.remove('active');
+  G.isPaused=false;
+  // 選択結果をフラグに反映
+  G.morningGoItem  =_moChoices.item;
+  G.morningGoWeapon=_moChoices.weapon;
+  G.boughtFood=false;
+  G.visitedWeapon=false;
+  G.aiState='WAKEUP';
+  updateUI();
+}
+
+// ============================================================
+// GOD COMMANDS
+// ============================================================
+function godCommand(cmd){
+  if(G.godPoints<5){addLog('神ポイントが足りない！(5P必要)','warn');return;}
+  G.godPoints-=5;G.godCmd=cmd;
+  const nm={ganban:'ガンガン行こう',inochi:'命大事に',sagashi:'探索重視',kaero:'帰ろう'};
+  addLog(`⚡神命令「${nm[cmd]}」`,'hi');
+  if(G.isSleeping){document.getElementById('sleepGP').textContent=G.godPoints;}
+  switch(cmd){
+    case'ganban':
+      if(G.isSleeping)wakeUp();
+      G.aiState='GOTO_GUILD';if(G.inVillage)setVPath(VP.guild);break;
+    case'inochi':
+      if(G.isSleeping)wakeUp();
+      G.aiState='GOTO_FOOD';if(G.inVillage)setVPath(VP.food);
+      else{G.aiState='RETURN_VILLAGE';setOPath(O_VILLAGE);}break;
+    case'sagashi':
+      if(G.isSleeping)wakeUp();
+      G.godCmd='sagashi';G.aiState='SEARCH';break;
+    case'kaero':
+      if(G.isSleeping)return;
+      if(G.inVillage){G.aiState='GOTO_HOME';setVPath(VP.home);}
+      else{G.aiState='RETURN_VILLAGE';setOPath(O_VILLAGE);}break;
+  }
+  updateUI();
+}
+function godBless(){
+  if(G.godPoints<10){addLog('神ポイントが足りない！(10P必要)','warn');return;}
+  // Find equipable gear
+  const slots=['right','left','armor'];
+  const blessable=slots.filter(s=>G.equipment[s]&&(G.equipBless[s]||0)<4);
+  if(blessable.length===0){
+    // check inventory
+    const gearInInv=G.inventory.filter(i=>(WEAPONS[i]||ARMORS[i]||SHIELDS[i]));
+    if(gearInInv.length===0){addLog('祝福できる装備がない！神Pを消費した','warn');G.godPoints-=10;return;}
+    const item=gearInInv[0];
+    G.godPoints-=10;
+    addLog(`${item}を祝福した！（インベントリ内）`,'good');
+    return;
+  }
+  G.godPoints-=10;
+  const slot=blessable[0];
+  G.equipBless[slot]=(G.equipBless[slot]||0)+1;
+  addLog(`${G.equipment[slot]}を祝福！+${G.equipBless[slot]}`,'good');
+  updateUI();
+}
+
+// ============================================================
+// UI
+// ============================================================
+function setThought(t){document.getElementById('thoughtBox').textContent=t;}
+function setAction(t){document.getElementById('actionBox').textContent=t;}
+function setSystem(t){document.getElementById('systemBox').textContent=t;}
+
+function addLog(msg,cls=''){
+  const box=document.getElementById('logBox');
+  const el=document.createElement('div');
+  el.className='log-entry'+(cls?' '+cls:'');
+  el.textContent=`[${String(G.hour).padStart(2,'0')}:${String(G.minute).padStart(2,'0')}] ${msg}`;
+  box.appendChild(el);box.scrollTop=box.scrollHeight;
+  while(box.children.length>100)box.removeChild(box.firstChild);
+}
+
+function updateUI(){
+  document.getElementById('sbDay').textContent=G.day;
+  document.getElementById('sbTime').textContent=`${G.hour}:${String(G.minute).padStart(2,'0')} ${isDay()?'☀':'🌙'}`;
+  document.getElementById('sbLv').textContent=G.level;
+  const hpPct=Math.max(0,G.hp/G.maxHP*100);
+  document.getElementById('hpBar').style.width=hpPct+'%';
+  document.getElementById('sbHp').textContent=`${G.hp}/${G.maxHP}`;
+  const mpPct=G.maxMp>0?Math.max(0,G.mp/G.maxMp*100):0;
+  document.getElementById('mpBar').style.width=mpPct+'%';
+  document.getElementById('sbMp').textContent=`${G.mp}/${G.maxMp}`;
+  document.getElementById('sbExp').textContent=`${G.exp}/${G.level*100}`;
+  document.getElementById('sbGold').textContent=G.gold;
+  document.getElementById('foodBar').style.width=G.food+'%';
+  document.getElementById('sbFood').textContent=Math.round(G.food);
+  document.getElementById('sleepBar').style.width=G.sleep+'%';
+  document.getElementById('sbSleep').textContent=Math.round(G.sleep);
+  document.getElementById('sbGodP').textContent=G.godPoints;
+  document.getElementById('gpVal').textContent=G.godPoints;
+  document.getElementById('sleepGP').textContent=G.godPoints;
+  document.getElementById('mapLabel').textContent=G.inVillage?'村内':'外界';
+  document.getElementById('mapLabel').style.color=G.inVillage?'var(--accent)':'var(--accent3)';
+
+  // Stat detail
+  document.getElementById('statDetail').innerHTML=`
+    <div class="sd-item"><span class="sd-label">体力</span><span class="sd-val">${G.stats.hp}</span></div>
+    <div class="sd-item"><span class="sd-label">攻撃力</span><span class="sd-val">${G.stats.atk}(${effAtk()})</span></div>
+    <div class="sd-item"><span class="sd-label">防御力</span><span class="sd-val">${G.stats.def}(${effDef()})</span></div>
+    <div class="sd-item"><span class="sd-label">知力</span><span class="sd-val">${G.stats.int}</span></div>
+    <div class="sd-item"><span class="sd-label">素早さ</span><span class="sd-val">${G.stats.agi}(${effAgi()})</span></div>`;
+  document.getElementById('personalityBadge').textContent=G.personality.name;
+
+  // Equipment display
+  const eq=G.equipment,bl=G.equipBless;
+  const eparts=[];
+  if(eq.right) eparts.push('右:'+eq.right+(bl.right?` +${bl.right}`:''));
+  if(eq.left)  eparts.push('左:'+eq.left +(bl.left ?` +${bl.left} `:''));
+  if(eq.armor) eparts.push('体:'+eq.armor+(bl.armor?` +${bl.armor}`:''));
+  document.getElementById('equipDisplay').textContent='装備：'+(eparts.join(' / ')||'なし');
+
+  // Inventory
+  const inv=document.getElementById('invGrid');
+  inv.innerHTML='';
+  document.getElementById('invCount').textContent=`${G.inventory.length}/20`;
+  const counts={};
+  for(const item of G.inventory)counts[item]=(counts[item]||0)+1;
+  for(const[item,cnt]of Object.entries(counts)){
+    const el=document.createElement('div');
+    const isGear=!!(WEAPONS[item]||ARMORS[item]||SHIELDS[item]);
+    el.className='inv-slot'+(isGear?' inv-equip':'');
+    el.textContent=cnt>1?`${item}×${cnt}`:item;
+    inv.appendChild(el);
+  }
+  if(G.inventory.length===0){const el=document.createElement('div');el.style.cssText='color:var(--dim);font-size:0.75em;';el.textContent='なし';inv.appendChild(el);}
+
+  // Quest
+  const qb=document.getElementById('questBox');
+  if(G.currentQuest){qb.style.display='block';qb.textContent=`依頼：${G.currentQuest.name} (${G.currentQuest.gold}G/${G.currentQuest.exp}EXP)`;}
+  else qb.style.display='none';
+
+  renderMap();
+}
+
+function renderMap(){
+  const canvas=document.getElementById('mapCanvas');
+  const map=G.inVillage?VMAP:OMAP;
+  const pos=G.inVillage?G.pos:G.outerPos;
+  const frag=document.createDocumentFragment();
+  for(let r=0;r<ROWS;r++){
+    const row=document.createElement('div');row.className='map-row';
+    for(let c=0;c<COLS;c++){
+      const cell=document.createElement('div');cell.className='map-cell';
+      const isPlayer=pos.r===r&&pos.c===c;
+      const isTarget=G.pathTarget&&G.pathTarget.r===r&&G.pathTarget.c===c;
+      const isPath=G.path.some(p=>p.r===r&&p.c===c);
+      if(isPlayer){
+        cell.classList.add('t-player','cell-player');
+        cell.textContent={N:'▲',S:'▼',W:'◀',E:'▶'}[G.facing]||'▲';
+      } else {
+        const ch=map[r][c];
+        cell.textContent=ch;
+        cell.classList.add(getTerrainClass(ch,G.inVillage));
+        if(isTarget)cell.classList.add('cell-target');
+        if(isPath)cell.classList.add('cell-path');
+      }
+      row.appendChild(cell);
+    }
+    frag.appendChild(row);
+  }
+  canvas.innerHTML='';canvas.appendChild(frag);
+}
+
+function getTerrainClass(ch,village){
+  if(village){
+    const m={'○':'t-fence','｜':'t-farm','＊':'t-ditch','・':'t-path','ｘ':'t-road',
+      '◎':'t-gate','自':'t-home','ア':'t-shop','武':'t-weapon','教':'t-church',
+      '食':'t-food','冒':'t-guild','井':'t-well','家':'t-wall',
+      'Ｇ':'t-gate','ど':'t-npc','農':'t-npc','害':'t-npc'};
+    return m[ch]||'t-path';
+  } else {
+    const m={'山':'t-mountain','森':'t-forest','林':'t-woods','＋':'t-plain',
+      '◆':'t-road-out','湿':'t-wetland','湖':'t-lake','村':'t-village',
+      '城':'t-castle','ダ':'t-dungeon'};
+    return m[ch]||'t-plain';
+  }
+}
+
+// ============================================================
+// CHARA MAKE
+// ============================================================
+let cmStats={hp:1,atk:1,def:1,int:1,agi:1},cmTotal=5;
+function changeStat(key,delta){
+  const nv=cmStats[key]+delta;if(nv<1)return;
+  const nt=cmTotal+delta;if(nt>10)return;
+  cmStats[key]=nv;cmTotal=nt;
+  document.getElementById('sv_'+key).textContent=cmStats[key];
+  document.getElementById('ptsLeft').textContent=10-cmTotal;
+  updatePersonalityPreview();
+}
+function updatePersonalityPreview(){
+  const pk=determinePersonality(cmStats);
+  const p=PERSONALITY[pk];
+  document.getElementById('personalityPreview').textContent=`性格：${p.name}  ${p.thoughts[0]}`;
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+let gameLoop=null;
+function getTickDelay(){
+  const s=parseInt(document.getElementById('speedRange').value);
+  document.getElementById('speedLabel').textContent='×'+s;
+  return Math.max(40,620-s*58);
+}
+// ============================================================
+// SAVE / LOAD
+// ============================================================
+const SAVE_KEY='rpg_autosave';
+
+function saveGame(){
+  if(!G.autoSave)return;
+  try{
+    const data=JSON.stringify(G);
+    localStorage.setItem(SAVE_KEY,data);
+    // セーブインジケーター表示
+    const ind=document.getElementById('saveIndicator');
+    ind.style.display='block';
+    setTimeout(()=>{ind.style.display='none';},1500);
+    addLog('💾 オートセーブ完了','');
+  } catch(e){addLog('セーブ失敗:'+e.message,'bad');}
+}
+
+function loadSave(){
+  try{
+    const data=localStorage.getItem(SAVE_KEY);
+    if(!data)return null;
+    return JSON.parse(data);
+  } catch(e){return null;}
+}
+
+function deleteSave(){
+  localStorage.removeItem(SAVE_KEY);
+}
+
+function checkSaveData(){
+  const data=loadSave();
+  if(!data)return;
+  // セーブ確認UIを表示
+  const notice=document.getElementById('saveNotice');
+  notice.classList.add('active');
+  const eq=data.equipment||{};
+  const wpn=eq.right||'なし';
+  const arm=eq.armor||'なし';
+  document.getElementById('saveInfoText').innerHTML=
+    `<span>${data.name}</span> / Lv<span>${data.level}</span> / ${data.day}日目<br>`+
+    `HP:<span>${data.maxHP}</span> G:<span>${data.gold}</span><br>`+
+    `武器:<span>${wpn}</span> 防具:<span>${arm}</span>`;
+}
+
+function loadAndContinue(){
+  const data=loadSave();
+  if(!data){alert('セーブデータを読み込めませんでした');return;}
+  G=data;
+
+  // セーブ時は就寝中なので、起床処理で朝の状態に戻す
+  G.isSleeping=false;
+  G.isPaused=false;
+  // 睡眠デバフ解除
+  if(G.sleepDebuff){
+    G.sleepDebuff=false;
+    const keys=['hp','atk','def','int','agi'];
+    for(const k of keys) G.stats[k]=G.baseStats[k];
+    G.maxHP=G.stats.hp*10;
+  }
+  // 朝の状態にリセット
+  G.hp=G.maxHP;
+  G.sleep=100;
+  G.food=Math.min(100,G.food+20);
+  if(typeof updateMaxMP==='function'){updateMaxMP();G.mp=G.maxMp;}
+  G.hour=6;G.minute=0;
+  G._wasNight=false;
+  G.inVillage=true;
+  G.pos={...VP.home};
+  G.path=[];
+  G.currentQuest=null;G.guildRewarded=false;G.questDone=false;
+  G.eatenBreakfast=false;G.eatenLunch=false;G.eatenDinner=false;
+  G.boughtFood=false;G.visitedWeapon=false;
+  G.emergencyEat=false;
+  G.aiState='WAKEUP';
+  G.godPoints=Math.min(10,(G.godPoints||0)+3);
+
+  // 画面切り替え
+  document.getElementById('saveNotice').classList.remove('active');
+  document.getElementById('sleepOverlay').classList.remove('active');
+  document.getElementById('screenChara').classList.remove('active');
+  document.getElementById('game').classList.add('active');
+  document.getElementById('game').style.display='flex';
+
+  addLog(`── セーブデータから再開：${G.name} ${G.day}日目 ──`,'hi');
+  updateUI();
+  startLoop();
+  // 朝の選択画面を開く
+  openMorningOverlay();
+}
+
+function startNewGame(){
+  // セーブデータを削除して新規スタート
+  deleteSave();
+  document.getElementById('saveNotice').classList.remove('active');
+}
+
+function startGame(){
+  const name=document.getElementById('charName').value||'主人公';
+  initGame(name,cmStats);
+  G.autoSave=document.getElementById('enableAutoSave').checked;
+  document.getElementById('screenChara').classList.remove('active');
+  document.getElementById('game').classList.add('active');
+  document.getElementById('game').style.display='flex';
+  addLog(`── ${name}の冒険が始まった ──`,'hi');
+  addLog(`性格：${G.personality.name}  HP:${G.maxHP}  G:${G.gold}`,'');
+  if(G.autoSave)addLog('💾 オートセーブON（就寝時に自動保存）','');
+  updateUI();startLoop();
+}
+function startLoop(){
+  if(gameLoop)clearInterval(gameLoop);
+  gameLoop=setInterval(()=>{getTickDelay();aiTick();},getTickDelay());
+}
+function togglePause(){
+  G.isPaused=!G.isPaused;
+  document.getElementById('pauseBtn').textContent=G.isPaused?'▶ 再開':'⏸ 一時停止';
+}
+function resetGame(){
+  if(gameLoop)clearInterval(gameLoop);
+  G={};
+  document.getElementById('game').classList.remove('active');
+  document.getElementById('game').style.display='none';
+  document.getElementById('screenChara').classList.add('active');
+  document.getElementById('sleepOverlay').classList.remove('active');
+  document.getElementById('combatOverlay').classList.remove('active');
+  document.getElementById('shopOverlay').classList.remove('active');
+  document.getElementById('logBox').innerHTML='';
+  document.getElementById('saveIndicator').style.display='none';
+  checkSaveData(); // セーブデータ確認UIを再チェック
+}
+document.getElementById('speedRange').addEventListener('input',startLoop);
+updatePersonalityPreview();
+// 起動時にセーブデータを確認
+checkSaveData();
+</script>
+</body>
+</html>
